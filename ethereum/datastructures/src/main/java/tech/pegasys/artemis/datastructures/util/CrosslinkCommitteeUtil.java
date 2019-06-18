@@ -28,6 +28,7 @@ import static java.lang.Math.toIntExact;
 import static tech.pegasys.artemis.datastructures.Constants.SHARD_COUNT;
 import static tech.pegasys.artemis.datastructures.Constants.SHUFFLE_ROUND_COUNT;
 import static tech.pegasys.artemis.datastructures.Constants.SLOTS_PER_EPOCH;
+import static tech.pegasys.artemis.datastructures.Constants.TARGET_COMMITTEE_SIZE;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.bytes_to_int;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.generate_seed;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.get_current_epoch;
@@ -89,8 +90,8 @@ public class CrosslinkCommitteeUtil {
     return compute_committee(
             get_active_validator_indices(state, epoch),
             generate_seed(state, epoch),
-            (shard.intValue() + SHARD_COUNT - get_epoch_start_shard(state, epoch)) % SHARD_COUNT,
-            get_epoch_committee_count(state, epoch)
+            (shard.intValue() + SHARD_COUNT - get_epoch_start_shard(state, epoch).intValue()) % SHARD_COUNT,
+            get_epoch_committee_count(state, epoch).intValue()
             );
   }
   public static UnsignedLong get_epoch_start_shard(BeaconState state, UnsignedLong epoch){
@@ -107,6 +108,18 @@ public class CrosslinkCommitteeUtil {
 
   public static UnsignedLong get_shard_delta(BeaconState state, UnsignedLong epoch){
     //Return the number of shards to increment ``state.latest_start_shard`` during ``epoch``.
-    return min(get_epoch_committee_count(state, epoch), UnsignedLong.valueOf(Math.floorDiv(SHARD_COUNT - SHARD_COUNT , SLOTS_PER_EPOCH)));
+    return min(get_epoch_committee_count(state, epoch), UnsignedLong.valueOf(SHARD_COUNT - Math.floorDiv(SHARD_COUNT , SLOTS_PER_EPOCH)));
+  }
+
+  public static UnsignedLong get_epoch_committee_count(BeaconState state, UnsignedLong epoch){
+    //Return the number of committees at ``epoch``.
+    List<Integer> active_validator_indices = get_active_validator_indices(state, epoch);
+    return max(
+            UnsignedLong.ONE,
+            min(
+                    UnsignedLong.valueOf(Math.floorDiv(SHARD_COUNT, SLOTS_PER_EPOCH)),
+                    UnsignedLong.valueOf(Math.floorDiv(active_validator_indices.size(), Math.floorDiv(SLOTS_PER_EPOCH, TARGET_COMMITTEE_SIZE)))
+            )
+    ).times(UnsignedLong.valueOf(SLOTS_PER_EPOCH));
   }
 }
