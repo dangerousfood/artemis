@@ -25,10 +25,14 @@ import java.util.List;
 import java.util.stream.IntStream;
 
 import static java.lang.Math.toIntExact;
+import static tech.pegasys.artemis.datastructures.Constants.SHARD_COUNT;
 import static tech.pegasys.artemis.datastructures.Constants.SHUFFLE_ROUND_COUNT;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.bytes_to_int;
+import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.generate_seed;
+import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.get_epoch_committee_count;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.int_to_bytes;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.max;
+import static tech.pegasys.artemis.datastructures.util.ValidatorsUtil.get_active_validator_indices;
 
 public class CrosslinkCommitteeUtil {
   // Return the number of committees in the previous epoch of the given ``state`
@@ -79,6 +83,11 @@ public class CrosslinkCommitteeUtil {
     return indices;
   }
   public static List<Integer> get_crosslink_committee(BeaconState state, UnsignedLong epoch, UnsignedLong shard){
-
+    return compute_committee(
+            get_active_validator_indices(state, epoch),
+            generate_seed(state, epoch),
+            (shard.intValue() + SHARD_COUNT - get_epoch_start_shard(state, epoch)) % SHARD_COUNT,
+            get_epoch_committee_count(state, epoch)
+            );
   }
 }
