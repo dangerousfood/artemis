@@ -143,4 +143,13 @@ public class AttestationUtil {
             Constants.DOMAIN_ATTESTATION)
         .intValue();
   }
+
+  public static boolean is_slashable_attestation_data(AttestationData data_1, AttestationData data_2){
+    //Check if ``data_1`` and ``data_2`` are slashable according to Casper FFG rules.
+    return (
+      //case 1: double vote || case 2: surround vote
+      (!data_1.equals(data_2) && data_1.getTarget_epoch().equals(data_2.getTarget_epoch()) ||
+      (data_1.getSource_epoch().compareTo(data_2.getSource_epoch()) < 0 && data_2.getTarget_epoch().compareTo(data_1.getTarget_epoch()) < 0))
+    );
+  }
 }
