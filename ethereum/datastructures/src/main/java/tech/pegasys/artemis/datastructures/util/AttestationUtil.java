@@ -45,10 +45,15 @@ import java.util.stream.IntStream;
 
 import static tech.pegasys.artemis.datastructures.Constants.DOMAIN_ATTESTATION;
 import static tech.pegasys.artemis.datastructures.Constants.MAX_INDICES_PER_ATTESTATION;
+import static tech.pegasys.artemis.datastructures.Constants.SHARD_COUNT;
+import static tech.pegasys.artemis.datastructures.Constants.SLOTS_PER_EPOCH;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.get_bitfield_bit;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.get_domain;
+import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.get_epoch_start_slot;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.verify_bitfield;
 import static tech.pegasys.artemis.datastructures.util.CrosslinkCommitteeUtil.get_crosslink_committee;
+import static tech.pegasys.artemis.datastructures.util.CrosslinkCommitteeUtil.get_epoch_committee_count;
+import static tech.pegasys.artemis.datastructures.util.CrosslinkCommitteeUtil.get_epoch_start_shard;
 import static tech.pegasys.artemis.util.hashtree.HashTreeUtil.SSZTypes.LIST_OF_BASIC;
 import static tech.pegasys.artemis.util.hashtree.HashTreeUtil.hash_tree_root;
 
@@ -99,7 +104,7 @@ public class AttestationUtil {
     Bytes32 headBlockRoot = block.signed_root("signature");
     Bytes32 crosslinkDataRoot = Bytes32.ZERO;
     UnsignedLong epochStartSlot =
-        BeaconStateUtil.get_epoch_start_slot(BeaconStateUtil.get_current_epoch(state));
+        get_epoch_start_slot(BeaconStateUtil.get_current_epoch(state));
     Bytes32 epochBoundaryRoot;
     if (epochStartSlot.compareTo(slot) == 0) {
       epochBoundaryRoot = block.signed_root("signature");
@@ -144,7 +149,7 @@ public class AttestationUtil {
     UnsignedLong shard = committee.getShard();
     attestationData.setShard(shard);
     Crosslink previousCrosslink =
-        state.getLatest_crosslinks().get(shard.intValue() % Constants.SHARD_COUNT);
+        state.getLatest_crosslinks().get(shard.intValue() % SHARD_COUNT);
     attestationData.setCrosslink(previousCrosslink);
     return attestationData;
   }
@@ -236,6 +241,12 @@ public class AttestationUtil {
     long domain = get_domain(state, DOMAIN_ATTESTATION, indexed_attestation.getData().getTarget_epoch());
     //Verify aggregate signature
     assert BLSVerify.bls_verify_multiple(pubkeys, message_hashes, signature, UnsignedLong.valueOf(domain));
+  }
+
+  public static UnsignedLong get_attestation_data_slot(BeaconState state, AttestationData data) {
+    UnsignedLong committee_count = get_epoch_committee_count(state, data.getTarget_epoch());
+    UnsignedLong offset = (data.getCrosslink().getShard().plus(UnsignedLong.valueOf(SHARD_COUNT)).minus(get_epoch_start_shard(state, data.getTarget_epoch()))).mod(UnsignedLong.valueOf(SHARD_COUNT));
+    return UnsignedLong.valueOf(Math.floorDiv(get_epoch_start_slot(data.getTarget_epoch()).plus(offset).longValue(), Math.floorDiv(committee_count.longValue(), (long) SLOTS_PER_EPOCH)));
   }
 
   public static <T> List<T> intersection(List<T> list1, List<T> list2) {
