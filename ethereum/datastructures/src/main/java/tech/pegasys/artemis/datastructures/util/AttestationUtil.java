@@ -14,9 +14,6 @@
 package tech.pegasys.artemis.datastructures.util;
 
 import com.google.common.primitives.UnsignedLong;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
@@ -27,11 +24,28 @@ import tech.pegasys.artemis.datastructures.blocks.BeaconBlock;
 import tech.pegasys.artemis.datastructures.operations.Attestation;
 import tech.pegasys.artemis.datastructures.operations.AttestationData;
 import tech.pegasys.artemis.datastructures.operations.AttestationDataAndCustodyBit;
+import tech.pegasys.artemis.datastructures.operations.IndexedAttestation;
 import tech.pegasys.artemis.datastructures.state.BeaconState;
 import tech.pegasys.artemis.datastructures.state.Crosslink;
 import tech.pegasys.artemis.datastructures.state.CrosslinkCommittee;
+import tech.pegasys.artemis.datastructures.state.Validator;
 import tech.pegasys.artemis.util.bls.BLSKeyPair;
 import tech.pegasys.artemis.util.bls.BLSPublicKey;
+import tech.pegasys.artemis.util.bls.BLSSignature;
+import tech.pegasys.artemis.util.bls.BLSVerify;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import static tech.pegasys.artemis.datastructures.Constants.DOMAIN_ATTESTATION;
+import static tech.pegasys.artemis.datastructures.Constants.MAX_INDICES_PER_ATTESTATION;
+import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.get_domain;
+import static tech.pegasys.artemis.util.hashtree.HashTreeUtil.SSZTypes.LIST_OF_BASIC;
+import static tech.pegasys.artemis.util.hashtree.HashTreeUtil.hash_tree_root;
 
 public class AttestationUtil {
 
@@ -137,7 +151,7 @@ public class AttestationUtil {
   }
 
   public static int getDomain(BeaconState state, AttestationData attestationData) {
-    return BeaconStateUtil.get_domain(
+    return get_domain(
             state.getFork(),
             BeaconStateUtil.slot_to_epoch(attestationData.getSlot()),
             Constants.DOMAIN_ATTESTATION)
@@ -152,4 +166,50 @@ public class AttestationUtil {
       (data_1.getSource_epoch().compareTo(data_2.getSource_epoch()) < 0 && data_2.getTarget_epoch().compareTo(data_1.getTarget_epoch()) < 0))
     );
   }
+
+  public static void validate_indexed_attestation(BeaconState state, IndexedAttestation indexed_attestation){
+    //Verify validity of ``indexed_attestation``.
+    List<UnsignedLong> bit_0_indices = indexed_attestation.getCustody_bit_0_indices();
+    List<UnsignedLong> bit_1_indices = indexed_attestation.getCustody_bit_1_indices();
+
+    //Verify no index has custody bit equal to 1 [to be removed in phase 1]
+    assert(bit_0_indices.size() == 0);
+    //Verify max number of indices
+    assert (bit_0_indices.size() + bit_1_indices.size()) <= MAX_INDICES_PER_ATTESTATION;
+    //Verify index sets are disjoint
+    assert intersection(bit_0_indices, bit_1_indices).size() == 0;
+    //Verify indices are sorted
+    Collections.sort(bit_0_indices);
+    List<UnsignedLong> bit_0_indices_sorted = new ArrayList<UnsignedLong>(bit_0_indices);
+    Collections.sort(bit_0_indices_sorted);
+    List<UnsignedLong> bit_1_indices_sorted = new ArrayList<UnsignedLong>(bit_1_indices);
+    Collections.sort(bit_1_indices_sorted);
+    assert bit_0_indices.equals(bit_0_indices_sorted) && bit_1_indices.equals(bit_1_indices_sorted);
+
+    List<Validator> validators = state.getValidator_registry();
+    List<BLSPublicKey> pubkeys = Arrays.stream(validators.subList(0, bit_0_indices.size()).toArray()).map((validator) -> {return ((Validator)validator).getPubkey();}).collect(Collectors.toList());
+    pubkeys.addAll(Arrays.stream(validators.subList(0, bit_1_indices.size()).toArray()).map((validator) -> {return ((Validator)validator).getPubkey();}).collect(Collectors.toList()));
+
+    List<Bytes32> message_hashes = new ArrayList<Bytes32>();
+    message_hashes.add(hash_tree_root(LIST_OF_BASIC, new AttestationDataAndCustodyBit(indexed_attestation.getData(), false).toBytes()));
+    message_hashes.add(hash_tree_root(LIST_OF_BASIC, new AttestationDataAndCustodyBit(indexed_attestation.getData(), true).toBytes()));
+
+    BLSSignature signature = indexed_attestation.getSignature();
+    UnsignedLong domain = get_domain(state, DOMAIN_ATTESTATION, indexed_attestation.getData().getTarget_epoch());
+    //Verify aggregate signature
+    assert BLSVerify.bls_verify_multiple(pubkeys, message_hashes, signature, domain);
+  }
+
+  public static <T> List<T> intersection(List<T> list1, List<T> list2) {
+    List<T> list = new ArrayList<T>();
+
+    for (T t : list1) {
+      if(list2.contains(t)) {
+        list.add(t);
+      }
+    }
+
+    return list;
+  }
+
 }
