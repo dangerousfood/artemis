@@ -119,4 +119,9 @@ public class ValidatorsUtil {
     set_of_indices.removeAll(set_of_validator_indices);
     return new ArrayList<>(set_of_indices);
   }
+
+  public static void decrease_balance(BeaconState state, int index, UnsignedLong delta){
+    //Decrease validator balance by ``delta`` with underflow protection.
+    state.getBalances().set(index, delta.compareTo(state.getBalances().get(index)) > 0 ? state.getBalances().get(index) : state.getBalances().get(index).minus(delta));
+  }
 }
