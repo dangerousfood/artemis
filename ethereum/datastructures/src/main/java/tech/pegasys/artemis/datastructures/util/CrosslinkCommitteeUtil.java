@@ -14,9 +14,21 @@
 package tech.pegasys.artemis.datastructures.util;
 
 import com.google.common.primitives.UnsignedLong;
-import java.util.List;
+import org.apache.commons.lang3.ArrayUtils;
+import org.apache.tuweni.bytes.Bytes;
+import org.apache.tuweni.bytes.Bytes32;
+import org.apache.tuweni.crypto.Hash;
 import tech.pegasys.artemis.datastructures.state.BeaconState;
 import tech.pegasys.artemis.datastructures.state.Validator;
+
+import java.util.List;
+import java.util.stream.IntStream;
+
+import static java.lang.Math.toIntExact;
+import static tech.pegasys.artemis.datastructures.Constants.SHUFFLE_ROUND_COUNT;
+import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.bytes_to_int;
+import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.int_to_bytes;
+import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.max;
 
 public class CrosslinkCommitteeUtil {
   // Return the number of committees in the previous epoch of the given ``state`
@@ -40,5 +52,34 @@ public class CrosslinkCommitteeUtil {
             state.getValidator_registry(),
             state.getCurrent_shuffling_epoch().plus(UnsignedLong.ONE));
     return previous_active_validators.size();
+  }
+  public static Integer get_shuffled_index(int index, int index_count, Bytes32 seed){
+    //Return the shuffled validator index corresponding to ``seed`` (and ``index_count``).
+    assert index < index_count;
+    assert index_count <= Math.pow(2, 40);
+
+    //Swap or not (https://link.springer.com/content/pdf/10.1007%2F978-3-642-32009-5_1.pdf)
+    //See the 'generalized domain' algorithm on page 3
+    for(int round = 0; round< SHUFFLE_ROUND_COUNT; round++){
+      long pivot = bytes_to_int(Bytes.wrap(ArrayUtils.subarray(Hash.sha2_256(Bytes.concatenate(seed, int_to_bytes(round, 1))).toArray(), 0, 8)));
+      long flip = (pivot + index_count - index) % index_count;
+      long position = max(UnsignedLong.valueOf(index), UnsignedLong.valueOf(flip)).longValue();
+      Bytes32 source = Hash.sha2_256(Bytes.concatenate(seed, int_to_bytes(round, 1), int_to_bytes(Math.floorDiv(position, 256l), 4)));
+      byte byteValue = source.get(toIntExact(Math.floorDiv((position % 256), 8l)));
+      int bit = (byteValue >> (position % 8)) % 2;
+      index = (bit == 1) ? (int)flip : index;
+    }
+    return index;
+  }
+  public static List<Integer> compute_committee(List<Integer> indices, Bytes32 seed, int index, int count){
+    int start = Math.floorDiv(indices.size() * index, count);
+    int end = Math.floorDiv(indices.size() * (index + 1), count);
+
+    for(int i = start; i < end; i++){
+      indices.get()
+    }
+  }
+  public static List<Integer> get_crosslink_committee(BeaconState state, UnsignedLong epoch, UnsignedLong shard){
+
   }
 }
