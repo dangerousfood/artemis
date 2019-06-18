@@ -29,6 +29,7 @@ import static tech.pegasys.artemis.datastructures.Constants.SHARD_COUNT;
 import static tech.pegasys.artemis.datastructures.Constants.SHUFFLE_ROUND_COUNT;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.bytes_to_int;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.generate_seed;
+import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.get_current_epoch;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.get_epoch_committee_count;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.int_to_bytes;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.max;
@@ -89,5 +90,16 @@ public class CrosslinkCommitteeUtil {
             (shard.intValue() + SHARD_COUNT - get_epoch_start_shard(state, epoch)) % SHARD_COUNT,
             get_epoch_committee_count(state, epoch)
             );
+  }
+  public static UnsignedLong get_epoch_start_shard(BeaconState state, UnsignedLong epoch){
+    assert epoch.compareTo(get_current_epoch(state).plus(UnsignedLong.ONE)) <= 0;
+    UnsignedLong check_epoch = get_current_epoch(state).plus(UnsignedLong.ONE);
+    UnsignedLong shard = state.getLatest_start_shard().plus(get_shard_delta(state, get_current_epoch(state))).mod(SHARD_COUNT);
+
+    while(check_epoch.compareTo(epoch) > 0){
+      check_epoch = check_epoch.minus(UnsignedLong.ONE);
+      shard = (shard.plus(UnsignedLong.valueOf(SHARD_COUNT)).minus(get_shard_delta(state, check_epoch))).mod(SHARD_COUNT);
+    }
+    return shard;
   }
 }
