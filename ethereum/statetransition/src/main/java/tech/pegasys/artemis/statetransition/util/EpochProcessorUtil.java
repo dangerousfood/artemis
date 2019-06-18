@@ -109,22 +109,6 @@ public final class EpochProcessorUtil {
     }
   }
 
-  public static List<Integer> get_attesting_indices(
-          BeaconState state, AttestationData attestation_data, Bytes bitfield) throws IllegalArgumentException {
-    //Return the sorted attesting indices corresponding to ``attestation_data`` and ``bitfield``.
-    List<Integer> committee = get_crosslink_committee(state, attestation_data.getTarget_epoch(), attestation_data.getCrosslink().getShard());
-    assert verify_bitfield(bitfield, committee.size());
-    Iterator<Integer> itr = committee.iterator();
-
-    List<Integer> returnValue = new ArrayList<Integer>();
-    while(itr.hasNext()){
-      int index = itr.next().intValue();
-      int bitfield1 = get_bitfield_bit(bitfield, index);
-      if((get_bitfield_bit(bitfield, index) & 1) == 1) returnValue.add(Integer.valueOf(index));
-    }
-    return returnValue;
-  }
-
   /**
    * @param state
    * @param attestations

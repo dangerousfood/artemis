@@ -30,6 +30,7 @@ import static tech.pegasys.artemis.datastructures.Constants.MIN_PER_EPOCH_CHURN_
 import static tech.pegasys.artemis.datastructures.Constants.SHARD_COUNT;
 import static tech.pegasys.artemis.datastructures.Constants.SHUFFLE_ROUND_COUNT;
 import static tech.pegasys.artemis.datastructures.Constants.SLOTS_PER_EPOCH;
+import static tech.pegasys.artemis.datastructures.Constants.SLOTS_PER_HISTORICAL_ROOT;
 import static tech.pegasys.artemis.datastructures.Constants.WHISTLEBLOWER_REWARD_QUOTIENT;
 import static tech.pegasys.artemis.datastructures.util.ValidatorsUtil.get_active_validator_indices;
 import static tech.pegasys.artemis.util.bls.BLSAggregate.bls_aggregate_pubkeys;
@@ -678,13 +679,13 @@ public class BeaconStateUtil {
     checkArgument(
         state
                 .getSlot()
-                .compareTo(slot.plus(UnsignedLong.valueOf(Constants.SLOTS_PER_HISTORICAL_ROOT)))
+                .compareTo(slot.plus(UnsignedLong.valueOf(SLOTS_PER_HISTORICAL_ROOT)))
             <= 0,
         "checkArgument threw an exception in get_block_root()");
     // Todo: Remove .intValue() as soon as our list wrapper supports unsigned longs
     return state
         .getLatest_block_roots()
-        .get(slot.mod(UnsignedLong.valueOf(Constants.SLOTS_PER_HISTORICAL_ROOT)).intValue());
+        .get(slot.mod(UnsignedLong.valueOf(SLOTS_PER_HISTORICAL_ROOT)).intValue());
   }
 
   /**
@@ -698,7 +699,7 @@ public class BeaconStateUtil {
     checkArgument(
         state
                 .getSlot()
-                .compareTo(slot.plus(UnsignedLong.valueOf(Constants.SLOTS_PER_HISTORICAL_ROOT)))
+                .compareTo(slot.plus(UnsignedLong.valueOf(SLOTS_PER_HISTORICAL_ROOT)))
             <= 0,
         "checkArgument threw an exception in get_state_root()");
     checkArgument(
@@ -707,7 +708,7 @@ public class BeaconStateUtil {
     // Todo: Remove .intValue() as soon as our list wrapper supports unsigned longs
     return state
         .getLatest_state_roots()
-        .get(slot.mod(UnsignedLong.valueOf(Constants.SLOTS_PER_HISTORICAL_ROOT)).intValue());
+        .get(slot.mod(UnsignedLong.valueOf(SLOTS_PER_HISTORICAL_ROOT)).intValue());
   }
 
   /**
@@ -1358,5 +1359,11 @@ public class BeaconStateUtil {
    */
   public static long bytes_to_int(Bytes data) {
     return data.toLong(ByteOrder.LITTLE_ENDIAN);
+  }
+
+  public static Bytes32 get_block_root_at_slot(BeaconState state, UnsignedLong slot){
+    //Return the block root at a recent ``slot``.
+    checkArgument(slot.compareTo(state.getSlot()) <= 0 &&  state.getSlot().compareTo(slot.plus(UnsignedLong.valueOf(SLOTS_PER_HISTORICAL_ROOT))) <= 0);
+    return state.getLatest_block_roots().get(slot.mod(UnsignedLong.valueOf(SLOTS_PER_HISTORICAL_ROOT)).intValue());
   }
 }

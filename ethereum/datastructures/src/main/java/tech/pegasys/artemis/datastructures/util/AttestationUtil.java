@@ -38,13 +38,17 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static tech.pegasys.artemis.datastructures.Constants.DOMAIN_ATTESTATION;
 import static tech.pegasys.artemis.datastructures.Constants.MAX_INDICES_PER_ATTESTATION;
+import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.get_bitfield_bit;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.get_domain;
+import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.verify_bitfield;
+import static tech.pegasys.artemis.datastructures.util.CrosslinkCommitteeUtil.get_crosslink_committee;
 import static tech.pegasys.artemis.util.hashtree.HashTreeUtil.SSZTypes.LIST_OF_BASIC;
 import static tech.pegasys.artemis.util.hashtree.HashTreeUtil.hash_tree_root;
 
@@ -183,6 +187,22 @@ public class AttestationUtil {
             attestation.getData(),
             attestation.getAggregate_signature()
             );
+  }
+
+  public static List<UnsignedLong> get_attesting_indices(
+          BeaconState state, AttestationData attestation_data, Bytes bitfield) throws IllegalArgumentException {
+    //Return the sorted attesting indices corresponding to ``attestation_data`` and ``bitfield``.
+    List<Integer> committee = get_crosslink_committee(state, attestation_data.getTarget_epoch(), attestation_data.getCrosslink().getShard());
+    assert verify_bitfield(bitfield, committee.size());
+    Iterator<Integer> itr = committee.iterator();
+
+    List<UnsignedLong> returnValue = new ArrayList<UnsignedLong>();
+    while(itr.hasNext()){
+      int index = itr.next().intValue();
+      int bitfield1 = get_bitfield_bit(bitfield, index);
+      if((get_bitfield_bit(bitfield, index) & 1) == 1) returnValue.add(UnsignedLong.valueOf(index));
+    }
+    return returnValue;
   }
 
   public static void validate_indexed_attestation(BeaconState state, IndexedAttestation indexed_attestation){
