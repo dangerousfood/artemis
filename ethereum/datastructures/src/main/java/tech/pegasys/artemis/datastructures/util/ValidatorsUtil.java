@@ -75,6 +75,7 @@ public class ValidatorsUtil {
    */
   public static List<Integer> get_active_validator_indices(
       BeaconState state, UnsignedLong epoch) {
+    //Get active validator indices at ``epoch``.
     List<Integer> active_validator_indices = Collections.synchronizedList(new ArrayList<>());
     List<Validator> validators = state.getValidator_registry();
     IntStream.range(0, validators.size())
