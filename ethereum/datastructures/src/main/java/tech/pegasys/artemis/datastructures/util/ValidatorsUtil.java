@@ -129,4 +129,8 @@ public class ValidatorsUtil {
     //Increase validator balance by ``delta``.
     state.getBalances().set(index, state.getBalances().get(index).plus(delta));
   }
+
+  public static boolean is_slashable_validator(Validator validator, UnsignedLong epoch){
+    return validator.isSlashed() && (validator.getActivation_epoch().compareTo(epoch) <= 0  && epoch.compareTo(validator.getWithdrawable_epoch()) < 0);
+  }
 }
