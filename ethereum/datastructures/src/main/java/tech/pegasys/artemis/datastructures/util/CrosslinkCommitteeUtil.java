@@ -75,9 +75,8 @@ public class CrosslinkCommitteeUtil {
     int start = Math.floorDiv(indices.size() * index, count);
     int end = Math.floorDiv(indices.size() * (index + 1), count);
 
-    for(int i = start; i < end; i++){
-      indices.get()
-    }
+    for(int i = start; i < end; i++)indices.set(i, get_shuffled_index(i, indices.size(), seed));
+    return indices;
   }
   public static List<Integer> get_crosslink_committee(BeaconState state, UnsignedLong epoch, UnsignedLong shard){
 
