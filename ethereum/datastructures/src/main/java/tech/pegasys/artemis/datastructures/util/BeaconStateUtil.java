@@ -505,13 +505,11 @@ public class BeaconStateUtil {
     return slot.dividedBy(UnsignedLong.valueOf(SLOTS_PER_EPOCH));
   }
 
-  /** Taken from 6.1 */
   public static UnsignedLong get_previous_epoch(BeaconState state) {
-    UnsignedLong current_epoch_minus_one = get_current_epoch(state).minus(UnsignedLong.ONE);
-    if (current_epoch_minus_one.compareTo(UnsignedLong.valueOf(GENESIS_EPOCH)) < 0) {
-      return UnsignedLong.valueOf(GENESIS_EPOCH);
-    }
-    return current_epoch_minus_one;
+    //Return the previous epoch of the given ``state``.
+    //Return the current epoch if it's genesis epoch.
+    UnsignedLong current_epoch = get_current_epoch(state);
+    return (current_epoch.equals(UnsignedLong.valueOf(GENESIS_EPOCH))) ? UnsignedLong.valueOf(GENESIS_EPOCH) : current_epoch.minus(UnsignedLong.ONE);
   }
 
   /**
