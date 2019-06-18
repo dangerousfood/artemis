@@ -434,20 +434,10 @@ public class BeaconStateUtil {
    *     - Spec v0.4</a>
    */
   public static Bytes32 get_active_index_root(BeaconState state, UnsignedLong epoch) {
-    checkArgument(
-        get_current_epoch(state)
-                .minus(UnsignedLong.valueOf(LATEST_ACTIVE_INDEX_ROOTS_LENGTH))
-                .plus(UnsignedLong.valueOf(ACTIVATION_EXIT_DELAY))
-                .compareTo(epoch)
-            < 0,
-        "get_active_index_root: first check");
-    checkArgument(
-        epoch.compareTo(get_current_epoch(state).plus(UnsignedLong.valueOf(ACTIVATION_EXIT_DELAY)))
-            <= 0,
-        "get_active_index_root: second check");
-
-    int index = epoch.mod(UnsignedLong.valueOf(LATEST_ACTIVE_INDEX_ROOTS_LENGTH)).intValue();
-    return state.getLatest_active_index_roots().get(index);
+    //Return the index root at a recent ``epoch``.
+    //``epoch`` expected to be between
+    //(current_epoch - LATEST_ACTIVE_INDEX_ROOTS_LENGTH + ACTIVATION_EXIT_DELAY, current_epoch + ACTIVATION_EXIT_DELAY].
+    return state.getLatest_active_index_roots().get(epoch.mod(UnsignedLong.valueOf(LATEST_ACTIVE_INDEX_ROOTS_LENGTH)).intValue());
   }
 
   public static Bytes32 getShard_block_root(BeaconState state, UnsignedLong shard) {
