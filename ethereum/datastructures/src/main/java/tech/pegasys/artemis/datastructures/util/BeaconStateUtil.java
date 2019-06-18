@@ -1036,13 +1036,11 @@ public class BeaconStateUtil {
    *     href="https://github.com/ethereum/eth2.0-specs/blob/v0.4.0/specs/core/0_beacon-chain.md#get_domain">get_domain
    *     - Spec v0.4</a>
    */
-  public static UnsignedLong get_domain(Fork fork, UnsignedLong epoch, int domain_type) {
-    // TODO Investigate this further:
-    // We deviate from the spec, adding domain_type first then concatting fork version on to it.
-    // The spec does this in the opposite order. It smells a lot like an endianness problem.
-    // The question is, it is Java/us, or is it a spec bug.
-    return UnsignedLong.valueOf(
-        bytes_to_int(Bytes.wrap(int_to_bytes(domain_type, 4), get_fork_version(fork, epoch))));
+  public static long get_domain(BeaconState state, int domain_type, UnsignedLong message_epoch) {
+    //Return the signature domain (fork version concatenated with domain type) of a message.
+    UnsignedLong epoch = (message_epoch == null) ? get_current_epoch(state) : message_epoch;
+    Bytes fork_version = (epoch.compareTo(state.getFork().getEpoch()) < 0) ? state.getFork().getPrevious_version() : state.getFork().getCurrent_version();
+    return bls_domain(domain_type, fork_version);
   }
 
   public static long bls_domain(int domain_type, Bytes fork_version){

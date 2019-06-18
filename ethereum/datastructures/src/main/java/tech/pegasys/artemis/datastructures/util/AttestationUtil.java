@@ -195,9 +195,9 @@ public class AttestationUtil {
     message_hashes.add(hash_tree_root(LIST_OF_BASIC, new AttestationDataAndCustodyBit(indexed_attestation.getData(), true).toBytes()));
 
     BLSSignature signature = indexed_attestation.getSignature();
-    UnsignedLong domain = get_domain(state, DOMAIN_ATTESTATION, indexed_attestation.getData().getTarget_epoch());
+    long domain = get_domain(state, DOMAIN_ATTESTATION, indexed_attestation.getData().getTarget_epoch());
     //Verify aggregate signature
-    assert BLSVerify.bls_verify_multiple(pubkeys, message_hashes, signature, domain);
+    assert BLSVerify.bls_verify_multiple(pubkeys, message_hashes, signature, UnsignedLong.valueOf(domain));
   }
 
   public static <T> List<T> intersection(List<T> list1, List<T> list2) {
