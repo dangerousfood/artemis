@@ -1042,6 +1042,11 @@ public class BeaconStateUtil {
         bytes_to_int(Bytes.wrap(int_to_bytes(domain_type, 4), get_fork_version(fork, epoch))));
   }
 
+  public static long bls_domain(int domain_type, Bytes fork_version){
+    //Return the bls domain given by the ``domain_type`` and optional 4 byte ``fork_version`` (defaults to zero).
+    return bytes_to_int(Bytes.concatenate(int_to_bytes(domain_type, 4), fork_version));
+  }
+
   /**
    * Return the epoch at which an activation or exit triggered in `epoch` takes effect. g
    *
