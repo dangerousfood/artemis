@@ -13,6 +13,37 @@
 
 package tech.pegasys.artemis.statetransition.util;
 
+import com.google.common.primitives.UnsignedLong;
+import org.apache.commons.lang3.tuple.MutablePair;
+import org.apache.logging.log4j.Level;
+import org.apache.tuweni.bytes.Bytes;
+import org.apache.tuweni.bytes.Bytes32;
+import org.apache.tuweni.ssz.SSZ;
+import tech.pegasys.artemis.datastructures.Constants;
+import tech.pegasys.artemis.datastructures.blocks.Eth1DataVote;
+import tech.pegasys.artemis.datastructures.operations.AttestationData;
+import tech.pegasys.artemis.datastructures.state.BeaconState;
+import tech.pegasys.artemis.datastructures.state.BeaconStateWithCache;
+import tech.pegasys.artemis.datastructures.state.Crosslink;
+import tech.pegasys.artemis.datastructures.state.CrosslinkCommittee;
+import tech.pegasys.artemis.datastructures.state.HistoricalBatch;
+import tech.pegasys.artemis.datastructures.state.PendingAttestation;
+import tech.pegasys.artemis.datastructures.state.Validator;
+import tech.pegasys.artemis.datastructures.util.BeaconStateUtil;
+import tech.pegasys.artemis.util.alogger.ALogger;
+import tech.pegasys.artemis.util.bitwise.BitwiseOps;
+import tech.pegasys.artemis.util.hashtree.HashTreeUtil;
+import tech.pegasys.artemis.util.hashtree.HashTreeUtil.SSZTypes;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
 import static java.lang.Math.toIntExact;
 import static tech.pegasys.artemis.datastructures.Constants.ACTIVATION_EXIT_DELAY;
 import static tech.pegasys.artemis.datastructures.Constants.FAR_FUTURE_EPOCH;
@@ -26,6 +57,7 @@ import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.exit_vali
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.generate_seed;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.get_attestation_participants;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.get_beacon_proposer_index;
+import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.get_bitfield_bit;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.get_block_root;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.get_crosslink_committees_at_slot;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.get_current_epoch;
@@ -40,35 +72,8 @@ import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.max;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.min;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.prepare_validator_for_withdrawal;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.slot_to_epoch;
+import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.verify_bitfield;
 import static tech.pegasys.artemis.datastructures.util.ValidatorsUtil.get_active_validator_indices;
-
-import com.google.common.primitives.UnsignedLong;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
-import java.util.TreeSet;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import org.apache.commons.lang3.tuple.MutablePair;
-import org.apache.logging.log4j.Level;
-import org.apache.tuweni.bytes.Bytes32;
-import org.apache.tuweni.ssz.SSZ;
-import tech.pegasys.artemis.datastructures.Constants;
-import tech.pegasys.artemis.datastructures.blocks.Eth1DataVote;
-import tech.pegasys.artemis.datastructures.state.BeaconState;
-import tech.pegasys.artemis.datastructures.state.BeaconStateWithCache;
-import tech.pegasys.artemis.datastructures.state.Crosslink;
-import tech.pegasys.artemis.datastructures.state.CrosslinkCommittee;
-import tech.pegasys.artemis.datastructures.state.HistoricalBatch;
-import tech.pegasys.artemis.datastructures.state.PendingAttestation;
-import tech.pegasys.artemis.datastructures.state.Validator;
-import tech.pegasys.artemis.datastructures.util.BeaconStateUtil;
-import tech.pegasys.artemis.util.alogger.ALogger;
-import tech.pegasys.artemis.util.bitwise.BitwiseOps;
-import tech.pegasys.artemis.util.hashtree.HashTreeUtil;
-import tech.pegasys.artemis.util.hashtree.HashTreeUtil.SSZTypes;
 
 public final class EpochProcessorUtil {
 
@@ -104,20 +109,20 @@ public final class EpochProcessorUtil {
     }
   }
 
-  /**
-   * Returns the union of validator index sets, where the sets are the attestation participants of
-   * attestations passed in TODO: the union part takes O(n^2) time, where n is the number of
-   * validators. OPTIMIZE
-   */
   public static List<Integer> get_attesting_indices(
-      BeaconState state, List<PendingAttestation> attestations) throws IllegalArgumentException {
+          BeaconState state, AttestationData attestation_data, Bytes bitfield) throws IllegalArgumentException {
+    //Return the sorted attesting indices corresponding to ``attestation_data`` and ``bitfield``.
+    List<Integer> committee = get_crosslink_committee(state, attestation_data.getTarget_epoch(), attestation_data.getCrosslink().getShard());
+    assert verify_bitfield(bitfield, committee.size());
+    Iterator<Integer> itr = committee.iterator();
 
-    TreeSet<Integer> output = new TreeSet<>();
-    for (PendingAttestation a : attestations) {
-      output.addAll(get_attestation_participants(state, a.getData(), a.getAggregation_bitfield()));
+    List<Integer> returnValue = new ArrayList<Integer>();
+    while(itr.hasNext()){
+      int index = itr.next().intValue();
+      int bitfield1 = get_bitfield_bit(bitfield, index);
+      if((get_bitfield_bit(bitfield, index) & 1) == 1) returnValue.add(Integer.valueOf(index));
     }
-    List<Integer> output_list = new ArrayList<>(output);
-    return output_list;
+    return returnValue;
   }
 
   /**
