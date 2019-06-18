@@ -124,4 +124,9 @@ public class ValidatorsUtil {
     //Decrease validator balance by ``delta`` with underflow protection.
     state.getBalances().set(index, delta.compareTo(state.getBalances().get(index)) > 0 ? state.getBalances().get(index) : state.getBalances().get(index).minus(delta));
   }
+
+  public static void increase_balance(BeaconState state, int index, UnsignedLong delta){
+    //Increase validator balance by ``delta``.
+    state.getBalances().set(index, state.getBalances().get(index).plus(delta));
+  }
 }
