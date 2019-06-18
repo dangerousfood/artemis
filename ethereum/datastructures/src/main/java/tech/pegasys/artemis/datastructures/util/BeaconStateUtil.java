@@ -649,15 +649,9 @@ public class BeaconStateUtil {
   }
 
   public static Bytes32 get_randao_mix(BeaconState state, UnsignedLong epoch) {
-    checkArgument(
-        get_current_epoch(state)
-                .minus(UnsignedLong.valueOf(LATEST_RANDAO_MIXES_LENGTH))
-                .compareTo(epoch)
-            < 0,
-        "get_randao_mix: first check");
-    checkArgument(epoch.compareTo(get_current_epoch(state)) <= 0, "get_randao_mix: second check");
-    UnsignedLong index = epoch.mod(UnsignedLong.valueOf(LATEST_RANDAO_MIXES_LENGTH));
-    return state.getLatest_randao_mixes().get(index.intValue());
+    //    Return the randao mix at a recent ``epoch``.
+    //    ``epoch`` expected to be between (current_epoch - LATEST_RANDAO_MIXES_LENGTH, current_epoch].
+    return state.getLatest_randao_mixes().get(epoch.mod(UnsignedLong.valueOf(LATEST_RANDAO_MIXES_LENGTH)).intValue());
   }
 
   /**
@@ -670,20 +664,9 @@ public class BeaconStateUtil {
    *     href="https://github.com/ethereum/eth2.0-specs/blob/v0.4.0/specs/core/0_beacon-chain.md#get_block_root">get_block_root
    *     - Spec v0.4</a>
    */
-  public static Bytes32 get_block_root(BeaconState state, UnsignedLong slot) {
-    checkArgument(
-        slot.compareTo(state.getSlot()) < 0,
-        "checkArgument threw an exception in get_block_root()");
-    checkArgument(
-        state
-                .getSlot()
-                .compareTo(slot.plus(UnsignedLong.valueOf(SLOTS_PER_HISTORICAL_ROOT)))
-            <= 0,
-        "checkArgument threw an exception in get_block_root()");
-    // Todo: Remove .intValue() as soon as our list wrapper supports unsigned longs
-    return state
-        .getLatest_block_roots()
-        .get(slot.mod(UnsignedLong.valueOf(SLOTS_PER_HISTORICAL_ROOT)).intValue());
+  public static Bytes32 get_block_root(BeaconState state, UnsignedLong epoch) {
+    //Return the block root at a recent ``epoch``.
+    return get_block_root_at_slot(state, epoch);
   }
 
   /**
