@@ -416,11 +416,12 @@ public class BeaconStateUtil {
    */
   public static Bytes32 generate_seed(BeaconState state, UnsignedLong epoch)
       throws IllegalArgumentException {
+    //Generate a seed for the given ``epoch``.
     Bytes32 randao_mix =
         get_randao_mix(state, epoch.minus(UnsignedLong.valueOf(Constants.MIN_SEED_LOOKAHEAD)));
     Bytes32 index_root = get_active_index_root(state, epoch);
     Bytes32 epochBytes = int_to_bytes32(epoch.longValue());
-    return Hash.keccak256(Bytes.wrap(randao_mix, index_root, epochBytes));
+    return Hash.sha2_256(Bytes.wrap(randao_mix, index_root, epochBytes));
   }
 
   /**
