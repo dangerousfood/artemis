@@ -27,12 +27,14 @@ import java.util.stream.IntStream;
 import static java.lang.Math.toIntExact;
 import static tech.pegasys.artemis.datastructures.Constants.SHARD_COUNT;
 import static tech.pegasys.artemis.datastructures.Constants.SHUFFLE_ROUND_COUNT;
+import static tech.pegasys.artemis.datastructures.Constants.SLOTS_PER_EPOCH;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.bytes_to_int;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.generate_seed;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.get_current_epoch;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.get_epoch_committee_count;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.int_to_bytes;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.max;
+import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.min;
 import static tech.pegasys.artemis.datastructures.util.ValidatorsUtil.get_active_validator_indices;
 
 public class CrosslinkCommitteeUtil {
@@ -101,5 +103,10 @@ public class CrosslinkCommitteeUtil {
       shard = (shard.plus(UnsignedLong.valueOf(SHARD_COUNT)).minus(get_shard_delta(state, check_epoch))).mod(SHARD_COUNT);
     }
     return shard;
+  }
+
+  public static UnsignedLong get_shard_delta(BeaconState state, UnsignedLong epoch){
+    //Return the number of shards to increment ``state.latest_start_shard`` during ``epoch``.
+    return min(get_epoch_committee_count(state, epoch), UnsignedLong.valueOf(Math.floorDiv(SHARD_COUNT - SHARD_COUNT , SLOTS_PER_EPOCH)));
   }
 }
