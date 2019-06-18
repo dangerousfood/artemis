@@ -15,14 +15,15 @@ package tech.pegasys.artemis.datastructures.util;
 
 import com.google.common.collect.Sets;
 import com.google.common.primitives.UnsignedLong;
+import tech.pegasys.artemis.datastructures.state.BeaconState;
+import tech.pegasys.artemis.datastructures.state.Validator;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import tech.pegasys.artemis.datastructures.state.BeaconState;
-import tech.pegasys.artemis.datastructures.state.Validator;
 
 public class ValidatorsUtil {
 
@@ -65,7 +66,7 @@ public class ValidatorsUtil {
   /**
    * Get indices of active validators from ``validators``.
    *
-   * @param validators - The list of validators under consideration.
+   * @param state - Current BeaconState
    * @param epoch - The epoch under consideration.
    * @return A list of indices representing the active validators for the given epoch.
    * @see <a
@@ -73,8 +74,9 @@ public class ValidatorsUtil {
    *     - Spec v0.4</a>
    */
   public static List<Integer> get_active_validator_indices(
-      List<Validator> validators, UnsignedLong epoch) {
+      BeaconState state, UnsignedLong epoch) {
     List<Integer> active_validator_indices = Collections.synchronizedList(new ArrayList<>());
+    List<Validator> validators = state.getValidator_registry();
     IntStream.range(0, validators.size())
         .parallel()
         .forEachOrdered(

@@ -16,6 +16,7 @@ package tech.pegasys.artemis.datastructures.util;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.toIntExact;
 import static tech.pegasys.artemis.datastructures.Constants.ACTIVATION_EXIT_DELAY;
+import static tech.pegasys.artemis.datastructures.Constants.CHURN_LIMIT_QUOTIENT;
 import static tech.pegasys.artemis.datastructures.Constants.DOMAIN_ATTESTATION;
 import static tech.pegasys.artemis.datastructures.Constants.DOMAIN_DEPOSIT;
 import static tech.pegasys.artemis.datastructures.Constants.FAR_FUTURE_EPOCH;
@@ -25,10 +26,12 @@ import static tech.pegasys.artemis.datastructures.Constants.LATEST_RANDAO_MIXES_
 import static tech.pegasys.artemis.datastructures.Constants.LATEST_SLASHED_EXIT_LENGTH;
 import static tech.pegasys.artemis.datastructures.Constants.MAX_DEPOSIT_AMOUNT;
 import static tech.pegasys.artemis.datastructures.Constants.MAX_INDICES_PER_SLASHABLE_VOTE;
+import static tech.pegasys.artemis.datastructures.Constants.MIN_PER_EPOCH_CHURN_LIMIT;
 import static tech.pegasys.artemis.datastructures.Constants.SHARD_COUNT;
 import static tech.pegasys.artemis.datastructures.Constants.SHUFFLE_ROUND_COUNT;
 import static tech.pegasys.artemis.datastructures.Constants.SLOTS_PER_EPOCH;
 import static tech.pegasys.artemis.datastructures.Constants.WHISTLEBLOWER_REWARD_QUOTIENT;
+import static tech.pegasys.artemis.datastructures.util.ValidatorsUtil.get_active_validator_indices;
 import static tech.pegasys.artemis.util.bls.BLSAggregate.bls_aggregate_pubkeys;
 import static tech.pegasys.artemis.util.bls.BLSVerify.bls_verify;
 import static tech.pegasys.artemis.util.bls.BLSVerify.bls_verify_multiple;
@@ -103,7 +106,7 @@ public class BeaconStateUtil {
     }
 
     List<Integer> active_validator_indices =
-        ValidatorsUtil.get_active_validator_indices(
+        get_active_validator_indices(
             state.getValidator_registry(), UnsignedLong.valueOf(GENESIS_EPOCH));
     Bytes32 genesis_active_index_root =
         HashTreeUtil.hash_tree_root(
@@ -358,7 +361,7 @@ public class BeaconStateUtil {
       return stateWithCash.getPreviousEpochCommitteeCount();
     } else {
       List<Integer> previous_active_validators =
-          ValidatorsUtil.get_active_validator_indices(
+          get_active_validator_indices(
               state.getValidator_registry(), state.getPrevious_shuffling_epoch());
       UnsignedLong count =
           get_epoch_committee_count(UnsignedLong.valueOf(previous_active_validators.size()));
@@ -379,7 +382,7 @@ public class BeaconStateUtil {
    */
   public static UnsignedLong get_current_epoch_committee_count(BeaconState state) {
     List<Integer> current_active_validators =
-        ValidatorsUtil.get_active_validator_indices(
+        get_active_validator_indices(
             state.getValidator_registry(), state.getCurrent_shuffling_epoch());
     return get_epoch_committee_count(UnsignedLong.valueOf(current_active_validators.size()));
   }
@@ -395,7 +398,7 @@ public class BeaconStateUtil {
    */
   private static UnsignedLong get_next_epoch_committee_count(BeaconState state) {
     List<Integer> next_active_validators =
-        ValidatorsUtil.get_active_validator_indices(
+        get_active_validator_indices(
             state.getValidator_registry(), get_current_epoch(state).plus(UnsignedLong.ONE));
     return get_epoch_committee_count(UnsignedLong.valueOf(next_active_validators.size()));
   }
@@ -744,7 +747,7 @@ public class BeaconStateUtil {
       Bytes32 seed, List<Validator> validators, UnsignedLong epoch) throws IllegalStateException {
 
     List<Integer> active_validator_indices =
-        ValidatorsUtil.get_active_validator_indices(validators, epoch);
+        get_active_validator_indices(validators, epoch);
 
     int length = active_validator_indices.size();
 
@@ -1046,6 +1049,12 @@ public class BeaconStateUtil {
     //Return the bls domain given by the ``domain_type`` and optional 4 byte ``fork_version`` (defaults to zero).
     return bytes_to_int(Bytes.concatenate(int_to_bytes(domain_type, 4), fork_version));
   }
+
+  public static UnsignedLong get_churn_limit(BeaconState state){
+    //Return the churn limit based on the active validator count.
+    return max(UnsignedLong.valueOf(MIN_PER_EPOCH_CHURN_LIMIT), UnsignedLong.valueOf(Math.floorDiv(get_active_validator_indices(state, get_current_epoch(state)).size(), CHURN_LIMIT_QUOTIENT)));
+  }
+
 
   /**
    * Return the epoch at which an activation or exit triggered in `epoch` takes effect. g
