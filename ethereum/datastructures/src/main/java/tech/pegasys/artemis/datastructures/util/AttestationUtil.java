@@ -40,6 +40,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static tech.pegasys.artemis.datastructures.Constants.DOMAIN_ATTESTATION;
 import static tech.pegasys.artemis.datastructures.Constants.MAX_INDICES_PER_ATTESTATION;
@@ -165,6 +166,23 @@ public class AttestationUtil {
       (!data_1.equals(data_2) && data_1.getTarget_epoch().equals(data_2.getTarget_epoch()) ||
       (data_1.getSource_epoch().compareTo(data_2.getSource_epoch()) < 0 && data_2.getTarget_epoch().compareTo(data_1.getTarget_epoch()) < 0))
     );
+  }
+
+  public static IndexedAttestation convert_to_indexed(BeaconState state, Attestation attestation){
+    //Convert ``attestation`` to (almost) indexed-verifiable form.
+    List<UnsignedLong> attestations = get_attesting_indices(state, attestation.getData(), attestation.getAggregation_bitfield());
+    List<UnsignedLong>  custody_bit_1_indices = get_attesting_indices(state, attestation.getData(), attestation.getCustody_bitfield());
+
+    List<UnsignedLong>  custody_bit_0_indices = new ArrayList<UnsignedLong>();
+    for(int i = 0; i < attestations.size(); i++){
+      if(!custody_bit_1_indices.contains(UnsignedLong.valueOf(i)))custody_bit_0_indices.add(UnsignedLong.valueOf(i));
+    }
+    return new IndexedAttestation(
+            custody_bit_0_indices,
+            custody_bit_1_indices,
+            attestation.getData(),
+            attestation.getAggregate_signature()
+            );
   }
 
   public static void validate_indexed_attestation(BeaconState state, IndexedAttestation indexed_attestation){
