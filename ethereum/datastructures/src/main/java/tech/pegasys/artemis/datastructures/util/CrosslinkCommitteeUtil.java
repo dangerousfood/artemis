@@ -19,17 +19,14 @@ import org.apache.tuweni.bytes.Bytes;
 import org.apache.tuweni.bytes.Bytes32;
 import org.apache.tuweni.crypto.Hash;
 import tech.pegasys.artemis.datastructures.state.BeaconState;
-import tech.pegasys.artemis.datastructures.state.Validator;
 
 import java.util.List;
-import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.toIntExact;
 import static tech.pegasys.artemis.datastructures.Constants.SHARD_COUNT;
 import static tech.pegasys.artemis.datastructures.Constants.SHUFFLE_ROUND_COUNT;
 import static tech.pegasys.artemis.datastructures.Constants.SLOTS_PER_EPOCH;
-import static tech.pegasys.artemis.datastructures.Constants.TARGET_COMMITTEE_SIZE;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.bytes_to_int;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.generate_seed;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.get_current_epoch;
@@ -77,11 +74,11 @@ public class CrosslinkCommitteeUtil {
   public static UnsignedLong get_epoch_start_shard(BeaconState state, UnsignedLong epoch){
     checkArgument(epoch.compareTo(get_current_epoch(state).plus(UnsignedLong.ONE)) <= 0);
     UnsignedLong check_epoch = get_current_epoch(state).plus(UnsignedLong.ONE);
-    UnsignedLong shard = state.getLatest_start_shard().plus(get_shard_delta(state, get_current_epoch(state))).mod(SHARD_COUNT);
+    UnsignedLong shard = state.getLatest_start_shard().plus(get_shard_delta(state, get_current_epoch(state))).mod(UnsignedLong.valueOf(SHARD_COUNT));
 
     while(check_epoch.compareTo(epoch) > 0){
       check_epoch = check_epoch.minus(UnsignedLong.ONE);
-      shard = (shard.plus(UnsignedLong.valueOf(SHARD_COUNT)).minus(get_shard_delta(state, check_epoch))).mod(SHARD_COUNT);
+      shard = (shard.plus(UnsignedLong.valueOf(SHARD_COUNT)).minus(get_shard_delta(state, check_epoch))).mod(UnsignedLong.valueOf(SHARD_COUNT));
     }
     return shard;
   }
