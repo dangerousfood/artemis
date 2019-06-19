@@ -39,28 +39,7 @@ import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.min;
 import static tech.pegasys.artemis.datastructures.util.ValidatorsUtil.get_active_validator_indices;
 
 public class CrosslinkCommitteeUtil {
-  // Return the number of committees in the previous epoch of the given ``state`
-  public static int get_previous_epoch_committee_count(BeaconState state) {
-    List<Validator> previous_active_validators =
-        ValidatorsUtil.get_active_validators(
-            state.getValidator_registry(), state.getPrevious_shuffling_epoch());
-    return previous_active_validators.size();
-  }
-  // Return the number of committees in the previous epoch of the given ``state`
-  public static int get_current_epoch_committee_count(BeaconState state) {
-    List<Validator> previous_active_validators =
-        ValidatorsUtil.get_active_validators(
-            state.getValidator_registry(), state.getCurrent_shuffling_epoch());
-    return previous_active_validators.size();
-  }
 
-  public static int get_next_epoch_committee_count(BeaconState state) {
-    List<Validator> previous_active_validators =
-        ValidatorsUtil.get_active_validators(
-            state.getValidator_registry(),
-            state.getCurrent_shuffling_epoch().plus(UnsignedLong.ONE));
-    return previous_active_validators.size();
-  }
   public static Integer get_shuffled_index(int index, int index_count, Bytes32 seed){
     //Return the shuffled validator index corresponding to ``seed`` (and ``index_count``).
     assert index < index_count;
