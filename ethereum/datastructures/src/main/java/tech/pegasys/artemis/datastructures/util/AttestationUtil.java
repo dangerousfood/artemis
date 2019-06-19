@@ -43,6 +43,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static tech.pegasys.artemis.datastructures.Constants.DOMAIN_ATTESTATION;
 import static tech.pegasys.artemis.datastructures.Constants.MAX_INDICES_PER_ATTESTATION;
 import static tech.pegasys.artemis.datastructures.Constants.SHARD_COUNT;
@@ -199,7 +200,7 @@ public class AttestationUtil {
           BeaconState state, AttestationData attestation_data, Bytes bitfield) throws IllegalArgumentException {
     //Return the sorted attesting indices corresponding to ``attestation_data`` and ``bitfield``.
     List<Integer> committee = get_crosslink_committee(state, attestation_data.getTarget_epoch(), attestation_data.getCrosslink().getShard());
-    assert verify_bitfield(bitfield, committee.size());
+    checkArgument(verify_bitfield(bitfield, committee.size()));
     Iterator<Integer> itr = committee.iterator();
 
     List<UnsignedLong> returnValue = new ArrayList<UnsignedLong>();
@@ -217,18 +218,18 @@ public class AttestationUtil {
     List<UnsignedLong> bit_1_indices = indexed_attestation.getCustody_bit_1_indices();
 
     //Verify no index has custody bit equal to 1 [to be removed in phase 1]
-    assert(bit_0_indices.size() == 0);
+    checkArgument((bit_0_indices.size() == 0);
     //Verify max number of indices
-    assert (bit_0_indices.size() + bit_1_indices.size()) <= MAX_INDICES_PER_ATTESTATION;
+    checkArgument(bit_0_indices.size() + bit_1_indices.size() <= MAX_INDICES_PER_ATTESTATION);
     //Verify index sets are disjoint
-    assert intersection(bit_0_indices, bit_1_indices).size() == 0;
+    checkArgument(intersection(bit_0_indices, bit_1_indices).size() == 0);
     //Verify indices are sorted
     Collections.sort(bit_0_indices);
     List<UnsignedLong> bit_0_indices_sorted = new ArrayList<UnsignedLong>(bit_0_indices);
     Collections.sort(bit_0_indices_sorted);
     List<UnsignedLong> bit_1_indices_sorted = new ArrayList<UnsignedLong>(bit_1_indices);
     Collections.sort(bit_1_indices_sorted);
-    assert bit_0_indices.equals(bit_0_indices_sorted) && bit_1_indices.equals(bit_1_indices_sorted);
+    checkArgument(bit_0_indices.equals(bit_0_indices_sorted) && bit_1_indices.equals(bit_1_indices_sorted));
 
     List<Validator> validators = state.getValidator_registry();
     List<BLSPublicKey> pubkeys = Arrays.stream(validators.subList(0, bit_0_indices.size()).toArray()).map((validator) -> {return ((Validator)validator).getPubkey();}).collect(Collectors.toList());
@@ -241,7 +242,7 @@ public class AttestationUtil {
     BLSSignature signature = indexed_attestation.getSignature();
     long domain = get_domain(state, DOMAIN_ATTESTATION, indexed_attestation.getData().getTarget_epoch());
     //Verify aggregate signature
-    assert BLSVerify.bls_verify_multiple(pubkeys, message_hashes, signature, UnsignedLong.valueOf(domain));
+    checkArgument(BLSVerify.bls_verify_multiple(pubkeys, message_hashes, signature, UnsignedLong.valueOf(domain)));
   }
 
   public static UnsignedLong get_attestation_data_slot(BeaconState state, AttestationData data) {

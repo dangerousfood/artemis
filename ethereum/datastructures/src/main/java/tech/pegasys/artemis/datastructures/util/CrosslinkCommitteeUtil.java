@@ -24,6 +24,7 @@ import tech.pegasys.artemis.datastructures.state.Validator;
 import java.util.List;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.toIntExact;
 import static tech.pegasys.artemis.datastructures.Constants.SHARD_COUNT;
 import static tech.pegasys.artemis.datastructures.Constants.SHUFFLE_ROUND_COUNT;
@@ -42,8 +43,8 @@ public class CrosslinkCommitteeUtil {
 
   public static Integer get_shuffled_index(int index, int index_count, Bytes32 seed){
     //Return the shuffled validator index corresponding to ``seed`` (and ``index_count``).
-    assert index < index_count;
-    assert index_count <= Math.pow(2, 40);
+    checkArgument(index < index_count);
+    checkArgument(index_count <= Math.pow(2, 40));
 
     //Swap or not (https://link.springer.com/content/pdf/10.1007%2F978-3-642-32009-5_1.pdf)
     //See the 'generalized domain' algorithm on page 3
@@ -74,7 +75,7 @@ public class CrosslinkCommitteeUtil {
             );
   }
   public static UnsignedLong get_epoch_start_shard(BeaconState state, UnsignedLong epoch){
-    assert epoch.compareTo(get_current_epoch(state).plus(UnsignedLong.ONE)) <= 0;
+    checkArgument(epoch.compareTo(get_current_epoch(state).plus(UnsignedLong.ONE)) <= 0);
     UnsignedLong check_epoch = get_current_epoch(state).plus(UnsignedLong.ONE);
     UnsignedLong shard = state.getLatest_start_shard().plus(get_shard_delta(state, get_current_epoch(state))).mod(SHARD_COUNT);
 
