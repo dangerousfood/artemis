@@ -49,6 +49,7 @@ import static tech.pegasys.artemis.datastructures.Constants.SHARD_COUNT;
 import static tech.pegasys.artemis.datastructures.Constants.SLOTS_PER_EPOCH;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.get_bitfield_bit;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.get_domain;
+import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.get_epoch_committee_count;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.get_epoch_start_slot;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.verify_bitfield;
 import static tech.pegasys.artemis.datastructures.util.CrosslinkCommitteeUtil.get_crosslink_committee;

@@ -13,41 +13,8 @@
 
 package tech.pegasys.artemis.datastructures.util;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.Math.toIntExact;
-import static tech.pegasys.artemis.datastructures.Constants.ACTIVATION_EXIT_DELAY;
-import static tech.pegasys.artemis.datastructures.Constants.CHURN_LIMIT_QUOTIENT;
-import static tech.pegasys.artemis.datastructures.Constants.DOMAIN_ATTESTATION;
-import static tech.pegasys.artemis.datastructures.Constants.DOMAIN_DEPOSIT;
-import static tech.pegasys.artemis.datastructures.Constants.FAR_FUTURE_EPOCH;
-import static tech.pegasys.artemis.datastructures.Constants.GENESIS_EPOCH;
-import static tech.pegasys.artemis.datastructures.Constants.LATEST_ACTIVE_INDEX_ROOTS_LENGTH;
-import static tech.pegasys.artemis.datastructures.Constants.LATEST_RANDAO_MIXES_LENGTH;
-import static tech.pegasys.artemis.datastructures.Constants.LATEST_SLASHED_EXIT_LENGTH;
-import static tech.pegasys.artemis.datastructures.Constants.MAX_DEPOSIT_AMOUNT;
-import static tech.pegasys.artemis.datastructures.Constants.MAX_INDICES_PER_SLASHABLE_VOTE;
-import static tech.pegasys.artemis.datastructures.Constants.MIN_PER_EPOCH_CHURN_LIMIT;
-import static tech.pegasys.artemis.datastructures.Constants.SHARD_COUNT;
-import static tech.pegasys.artemis.datastructures.Constants.SHUFFLE_ROUND_COUNT;
-import static tech.pegasys.artemis.datastructures.Constants.SLOTS_PER_EPOCH;
-import static tech.pegasys.artemis.datastructures.Constants.SLOTS_PER_HISTORICAL_ROOT;
-import static tech.pegasys.artemis.datastructures.Constants.WHISTLEBLOWER_REWARD_QUOTIENT;
-import static tech.pegasys.artemis.datastructures.util.ValidatorsUtil.get_active_validator_indices;
-import static tech.pegasys.artemis.util.bls.BLSAggregate.bls_aggregate_pubkeys;
-import static tech.pegasys.artemis.util.bls.BLSVerify.bls_verify;
-import static tech.pegasys.artemis.util.bls.BLSVerify.bls_verify_multiple;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.primitives.UnsignedLong;
-import java.nio.ByteOrder;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.ListIterator;
-import java.util.Objects;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.apache.tuweni.bytes.Bytes;
 import org.apache.tuweni.bytes.Bytes32;
 import org.apache.tuweni.crypto.Hash;
@@ -69,6 +36,45 @@ import tech.pegasys.artemis.util.bls.BLSPublicKey;
 import tech.pegasys.artemis.util.bls.BLSSignature;
 import tech.pegasys.artemis.util.hashtree.HashTreeUtil;
 import tech.pegasys.artemis.util.hashtree.HashTreeUtil.SSZTypes;
+
+import java.nio.ByteOrder;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.ListIterator;
+import java.util.Objects;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Math.toIntExact;
+import static tech.pegasys.artemis.datastructures.Constants.ACTIVATION_EXIT_DELAY;
+import static tech.pegasys.artemis.datastructures.Constants.CHURN_LIMIT_QUOTIENT;
+import static tech.pegasys.artemis.datastructures.Constants.DOMAIN_ATTESTATION;
+import static tech.pegasys.artemis.datastructures.Constants.DOMAIN_DEPOSIT;
+import static tech.pegasys.artemis.datastructures.Constants.FAR_FUTURE_EPOCH;
+import static tech.pegasys.artemis.datastructures.Constants.GENESIS_EPOCH;
+import static tech.pegasys.artemis.datastructures.Constants.LATEST_ACTIVE_INDEX_ROOTS_LENGTH;
+import static tech.pegasys.artemis.datastructures.Constants.LATEST_RANDAO_MIXES_LENGTH;
+import static tech.pegasys.artemis.datastructures.Constants.LATEST_SLASHED_EXIT_LENGTH;
+import static tech.pegasys.artemis.datastructures.Constants.MAX_DEPOSIT_AMOUNT;
+import static tech.pegasys.artemis.datastructures.Constants.MAX_EFFECTIVE_BALANCE;
+import static tech.pegasys.artemis.datastructures.Constants.MAX_INDICES_PER_SLASHABLE_VOTE;
+import static tech.pegasys.artemis.datastructures.Constants.MIN_PER_EPOCH_CHURN_LIMIT;
+import static tech.pegasys.artemis.datastructures.Constants.SHARD_COUNT;
+import static tech.pegasys.artemis.datastructures.Constants.SHUFFLE_ROUND_COUNT;
+import static tech.pegasys.artemis.datastructures.Constants.SLOTS_PER_EPOCH;
+import static tech.pegasys.artemis.datastructures.Constants.SLOTS_PER_HISTORICAL_ROOT;
+import static tech.pegasys.artemis.datastructures.Constants.TARGET_COMMITTEE_SIZE;
+import static tech.pegasys.artemis.datastructures.Constants.WHISTLEBLOWER_REWARD_QUOTIENT;
+import static tech.pegasys.artemis.datastructures.util.CrosslinkCommitteeUtil.get_crosslink_committee;
+import static tech.pegasys.artemis.datastructures.util.CrosslinkCommitteeUtil.get_epoch_start_shard;
+import static tech.pegasys.artemis.datastructures.util.ValidatorsUtil.get_active_validator_indices;
+import static tech.pegasys.artemis.util.bls.BLSAggregate.bls_aggregate_pubkeys;
+import static tech.pegasys.artemis.util.bls.BLSVerify.bls_verify;
+import static tech.pegasys.artemis.util.bls.BLSVerify.bls_verify_multiple;
 
 public class BeaconStateUtil {
 
@@ -441,6 +447,16 @@ public class BeaconStateUtil {
     return state.getLatest_active_index_roots().get(epoch.mod(UnsignedLong.valueOf(LATEST_ACTIVE_INDEX_ROOTS_LENGTH)).intValue());
   }
 
+  public static UnsignedLong get_total_balance(BeaconState state, List<Integer> indices){
+    //Return the combined effective balance of the ``indices``. (1 Gwei minimum to avoid divisions by zero.)
+    UnsignedLong sum = UnsignedLong.ZERO;
+    Iterator<Integer> itr = indices.iterator();
+    while(itr.hasNext()){
+      sum = sum.plus(state.getValidator_registry().get(itr.next().intValue()).getEffective_balance());
+    }
+    return max(sum, UnsignedLong.ONE);
+  }
+
   public static Bytes32 getShard_block_root(BeaconState state, UnsignedLong shard) {
     return state
         .getLatest_crosslinks()
@@ -463,24 +479,6 @@ public class BeaconStateUtil {
     return min(
         state.getValidator_balances().get(index),
         UnsignedLong.valueOf(Constants.MAX_DEPOSIT_AMOUNT));
-  }
-
-  /**
-   * Adds and returns the effective balances for the validators referenced by the given indices.
-   *
-   * @param state - The current BeaconState.
-   * @param validators - A list of validator indices to get the total balance for.
-   * @return The combined effective balance of the list of validators.
-   * @see <a
-   *     href="https://github.com/ethereum/eth2.0-specs/blob/v0.4.0/specs/core/0_beacon-chain.md#get_total_balance">get_total_balance
-   *     - Spec v0.4</a>
-   */
-  public static UnsignedLong get_total_balance(BeaconState state, List<Integer> validators) {
-    UnsignedLong total_balance = UnsignedLong.ZERO;
-    for (Integer index : validators) {
-      total_balance = total_balance.plus(BeaconStateUtil.get_effective_balance(state, index));
-    }
-    return total_balance;
   }
 
   /**
@@ -683,26 +681,16 @@ public class BeaconStateUtil {
         .get(slot.mod(UnsignedLong.valueOf(SLOTS_PER_HISTORICAL_ROOT)).intValue());
   }
 
-  /**
-   * Returns the number of committees in one epoch.
-   *
-   * @param active_validator_count - The number of active validators.
-   * @return The number of committees in one epoch.
-   * @see <a
-   *     href="https://github.com/ethereum/eth2.0-specs/blob/v0.4.0/specs/core/0_beacon-chain.md#get_epoch_committee_count">get_epoch_committee_count
-   *     - Spec v0.4</a>
-   */
-  public static UnsignedLong get_epoch_committee_count(UnsignedLong active_validator_count) {
-
+  public static UnsignedLong get_epoch_committee_count(BeaconState state, UnsignedLong epoch){
+    //Return the number of committees at ``epoch``.
+    List<Integer> active_validator_indices = get_active_validator_indices(state, epoch);
     return max(
             UnsignedLong.ONE,
             min(
-                UnsignedLong.valueOf(Constants.SHARD_COUNT)
-                    .dividedBy(UnsignedLong.valueOf(SLOTS_PER_EPOCH)),
-                active_validator_count
-                    .dividedBy(UnsignedLong.valueOf(SLOTS_PER_EPOCH))
-                    .dividedBy(UnsignedLong.valueOf(Constants.TARGET_COMMITTEE_SIZE))))
-        .times(UnsignedLong.valueOf(SLOTS_PER_EPOCH));
+                    UnsignedLong.valueOf(Math.floorDiv(SHARD_COUNT, SLOTS_PER_EPOCH)),
+                    UnsignedLong.valueOf(Math.floorDiv(active_validator_indices.size(), Math.floorDiv(SLOTS_PER_EPOCH, TARGET_COMMITTEE_SIZE)))
+            )
+    ).times(UnsignedLong.valueOf(SLOTS_PER_EPOCH));
   }
 
   /**
@@ -941,25 +929,23 @@ public class BeaconStateUtil {
   }
 
   public static int get_beacon_proposer_index(
-      BeaconState state, UnsignedLong slot, boolean registry_change)
-      throws IllegalArgumentException {
-    UnsignedLong epoch = slot_to_epoch(slot);
-    UnsignedLong current_epoch = get_current_epoch(state);
-    UnsignedLong previous_epoch = get_previous_epoch(state);
-    UnsignedLong next_epoch = current_epoch.plus(UnsignedLong.ONE);
+      BeaconState state) {
+    UnsignedLong epoch = get_current_epoch(state);
+    UnsignedLong committees_per_slot = UnsignedLong.valueOf(Math.floorDiv(get_epoch_committee_count(state, epoch).longValue(), (long)SLOTS_PER_EPOCH));
+    UnsignedLong offset = committees_per_slot.times(state.getSlot().mod(UnsignedLong.valueOf(SLOTS_PER_EPOCH)));
+    UnsignedLong shard = get_epoch_start_shard(state, epoch).plus(offset).mod(UnsignedLong.valueOf(SHARD_COUNT));
 
-    checkArgument(
-        previous_epoch.compareTo(epoch) <= 0 && epoch.compareTo(next_epoch) <= 0,
-        "get_beacon_proposer_index: slot not in range");
-
-    List<Integer> first_committee =
-        get_crosslink_committees_at_slot(state, slot, registry_change).get(0).getCommittee();
-    // TODO: replace slot.intValue() with an UnsignedLong value
-    return first_committee.get(epoch.intValue() % first_committee.size());
-  }
-
-  public static int get_beacon_proposer_index(BeaconState state, UnsignedLong slot) {
-    return get_beacon_proposer_index(state, slot, false);
+    List<Integer> first_committee = get_crosslink_committee(state, epoch, shard);
+    int MAX_RANDOM_BYTE = ((int)(Math.pow(2.0d, 8.0d))) - 1;
+    Bytes seed = generate_seed(state, epoch);
+    int i = 0;
+    while(true){
+      int candidate_index = first_committee.get(epoch.plus(UnsignedLong.valueOf(i)).mod(UnsignedLong.valueOf(first_committee.size())).intValue());
+      byte random_byte = Hash.sha2_256(Bytes.concatenate(seed, int_to_bytes(Math.floorDiv(i, 32), 8))).toArray()[i % 32];
+      UnsignedLong effective_balance = state.getValidator_registry().get(candidate_index).getEffective_balance();
+      if(effective_balance.times(UnsignedLong.valueOf(MAX_RANDOM_BYTE)).compareTo(UnsignedLong.valueOf(MAX_EFFECTIVE_BALANCE).times(UnsignedLong.valueOf(random_byte))) >= 0) return candidate_index;
+      i++;
+    }
   }
 
   /**

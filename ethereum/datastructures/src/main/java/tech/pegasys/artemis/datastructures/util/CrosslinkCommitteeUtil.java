@@ -110,16 +110,4 @@ public class CrosslinkCommitteeUtil {
     //Return the number of shards to increment ``state.latest_start_shard`` during ``epoch``.
     return min(get_epoch_committee_count(state, epoch), UnsignedLong.valueOf(SHARD_COUNT - Math.floorDiv(SHARD_COUNT , SLOTS_PER_EPOCH)));
   }
-
-  public static UnsignedLong get_epoch_committee_count(BeaconState state, UnsignedLong epoch){
-    //Return the number of committees at ``epoch``.
-    List<Integer> active_validator_indices = get_active_validator_indices(state, epoch);
-    return max(
-            UnsignedLong.ONE,
-            min(
-                    UnsignedLong.valueOf(Math.floorDiv(SHARD_COUNT, SLOTS_PER_EPOCH)),
-                    UnsignedLong.valueOf(Math.floorDiv(active_validator_indices.size(), Math.floorDiv(SLOTS_PER_EPOCH, TARGET_COMMITTEE_SIZE)))
-            )
-    ).times(UnsignedLong.valueOf(SLOTS_PER_EPOCH));
-  }
 }
