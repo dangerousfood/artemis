@@ -123,7 +123,8 @@ public class ValidatorsUtil {
 
   public static void decrease_balance(BeaconState state, int index, UnsignedLong delta){
     //Decrease validator balance by ``delta`` with underflow protection.
-    state.getBalances().set(index, delta.compareTo(state.getBalances().get(index)) > 0 ? state.getBalances().get(index) : state.getBalances().get(index).minus(delta));
+    UnsignedLong deltaBalance = delta.compareTo(state.getBalances().get(index)) > 0 ? UnsignedLong.ZERO : state.getBalances().get(index).minus(delta);
+    state.getBalances().set(index, deltaBalance);
   }
 
   public static void increase_balance(BeaconState state, int index, UnsignedLong delta){
@@ -132,6 +133,6 @@ public class ValidatorsUtil {
   }
 
   public static boolean is_slashable_validator(Validator validator, UnsignedLong epoch){
-    return validator.isSlashed() && (validator.getActivation_epoch().compareTo(epoch) <= 0  && epoch.compareTo(validator.getWithdrawable_epoch()) < 0);
+    return !validator.isSlashed() && (validator.getActivation_epoch().compareTo(epoch) <= 0  && epoch.compareTo(validator.getWithdrawable_epoch()) < 0);
   }
 }

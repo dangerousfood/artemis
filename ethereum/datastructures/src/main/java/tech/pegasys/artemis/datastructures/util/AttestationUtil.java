@@ -175,18 +175,20 @@ public class AttestationUtil {
     return (
       //case 1: double vote || case 2: surround vote
       (!data_1.equals(data_2) && data_1.getTarget_epoch().equals(data_2.getTarget_epoch()) ||
-      (data_1.getSource_epoch().compareTo(data_2.getSource_epoch()) < 0 && data_2.getTarget_epoch().compareTo(data_1.getTarget_epoch()) < 0))
+        (data_1.getSource_epoch().compareTo(data_2.getSource_epoch()) < 0 &&
+                data_2.getTarget_epoch().compareTo(data_1.getTarget_epoch()) < 0))
     );
   }
 
   public static IndexedAttestation convert_to_indexed(BeaconState state, Attestation attestation){
     //Convert ``attestation`` to (almost) indexed-verifiable form.
-    List<UnsignedLong> attestations = get_attesting_indices(state, attestation.getData(), attestation.getAggregation_bitfield());
-    List<UnsignedLong>  custody_bit_1_indices = get_attesting_indices(state, attestation.getData(), attestation.getCustody_bitfield());
+    List<Integer> attestations = get_attesting_indices(state, attestation.getData(), attestation.getAggregation_bitfield());
+    List<Integer>  custody_bit_1_indices = get_attesting_indices(state, attestation.getData(), attestation.getCustody_bitfield());
 
-    List<UnsignedLong>  custody_bit_0_indices = new ArrayList<UnsignedLong>();
+    List<Integer> custody_bit_0_indices = new ArrayList<Integer>();
     for(int i = 0; i < attestations.size(); i++){
-      if(!custody_bit_1_indices.contains(UnsignedLong.valueOf(i)))custody_bit_0_indices.add(UnsignedLong.valueOf(i));
+      Integer index = attestations.get(i);
+      if(!custody_bit_1_indices.contains(index))custody_bit_0_indices.add(index);
     }
     return new IndexedAttestation(
             custody_bit_0_indices,
@@ -196,59 +198,66 @@ public class AttestationUtil {
             );
   }
 
-  public static List<UnsignedLong> get_attesting_indices(
+  public static List<Integer> get_attesting_indices(
           BeaconState state, AttestationData attestation_data, Bytes bitfield) throws IllegalArgumentException {
     //Return the sorted attesting indices corresponding to ``attestation_data`` and ``bitfield``.
     List<Integer> committee = get_crosslink_committee(state, attestation_data.getTarget_epoch(), attestation_data.getCrosslink().getShard());
     checkArgument(verify_bitfield(bitfield, committee.size()));
-    Iterator<Integer> itr = committee.iterator();
 
-    List<UnsignedLong> returnValue = new ArrayList<UnsignedLong>();
-    while(itr.hasNext()){
-      int index = itr.next().intValue();
-      int bitfield1 = get_bitfield_bit(bitfield, index);
-      if((get_bitfield_bit(bitfield, index) & 1) == 1) returnValue.add(UnsignedLong.valueOf(index));
+    List<Integer> attesting_indices = new ArrayList<Integer>();
+    for(int i=0; i < committee.size(); i++){
+      int index = committee.get(i).intValue();
+      int bitfieldBit = get_bitfield_bit(bitfield, i);
+      if((bitfieldBit & 1) == 1) attesting_indices.add(index);
     }
-    return returnValue;
+    return attesting_indices;
   }
 
   public static void validate_indexed_attestation(BeaconState state, IndexedAttestation indexed_attestation){
     //Verify validity of ``indexed_attestation``.
-    List<UnsignedLong> bit_0_indices = indexed_attestation.getCustody_bit_0_indices();
-    List<UnsignedLong> bit_1_indices = indexed_attestation.getCustody_bit_1_indices();
+    List<Integer> bit_0_indices = indexed_attestation.getCustody_bit_0_indices();
+    List<Integer> bit_1_indices = indexed_attestation.getCustody_bit_1_indices();
 
     //Verify no index has custody bit equal to 1 [to be removed in phase 1]
-    checkArgument((bit_0_indices.size() == 0);
+    checkArgument(bit_0_indices.size() == 0);
     //Verify max number of indices
-    checkArgument(bit_0_indices.size() + bit_1_indices.size() <= MAX_INDICES_PER_ATTESTATION);
+    checkArgument((bit_0_indices.size() + bit_1_indices.size()) <= MAX_INDICES_PER_ATTESTATION);
     //Verify index sets are disjoint
     checkArgument(intersection(bit_0_indices, bit_1_indices).size() == 0);
+
     //Verify indices are sorted
-    Collections.sort(bit_0_indices);
-    List<UnsignedLong> bit_0_indices_sorted = new ArrayList<UnsignedLong>(bit_0_indices);
+    List<Integer> bit_0_indices_sorted = new ArrayList<Integer>(bit_0_indices);
     Collections.sort(bit_0_indices_sorted);
-    List<UnsignedLong> bit_1_indices_sorted = new ArrayList<UnsignedLong>(bit_1_indices);
+    List<Integer> bit_1_indices_sorted = new ArrayList<Integer>(bit_1_indices);
     Collections.sort(bit_1_indices_sorted);
     checkArgument(bit_0_indices.equals(bit_0_indices_sorted) && bit_1_indices.equals(bit_1_indices_sorted));
 
     List<Validator> validators = state.getValidator_registry();
-    List<BLSPublicKey> pubkeys = Arrays.stream(validators.subList(0, bit_0_indices.size()).toArray()).map((validator) -> {return ((Validator)validator).getPubkey();}).collect(Collectors.toList());
-    pubkeys.addAll(Arrays.stream(validators.subList(0, bit_1_indices.size()).toArray()).map((validator) -> {return ((Validator)validator).getPubkey();}).collect(Collectors.toList()));
+    List<BLSPublicKey> pubkeys = Arrays.stream(validators.subList(0, bit_0_indices.size()).toArray())
+            .map((validator) -> {return ((Validator)validator).getPubkey();}).collect(Collectors.toList());
+    pubkeys.addAll(Arrays.stream(validators.subList(0, bit_1_indices.size()).toArray())
+            .map((validator) -> {return ((Validator)validator).getPubkey();}).collect(Collectors.toList()));
 
     List<Bytes32> message_hashes = new ArrayList<Bytes32>();
-    message_hashes.add(hash_tree_root(LIST_OF_BASIC, new AttestationDataAndCustodyBit(indexed_attestation.getData(), false).toBytes()));
-    message_hashes.add(hash_tree_root(LIST_OF_BASIC, new AttestationDataAndCustodyBit(indexed_attestation.getData(), true).toBytes()));
+    new AttestationDataAndCustodyBit(indexed_attestation.getData(), false);
+    message_hashes.add(new AttestationDataAndCustodyBit(indexed_attestation.getData(), false).hash_tree_root());
+    message_hashes.add(new AttestationDataAndCustodyBit(indexed_attestation.getData(), true).hash_tree_root());
 
     BLSSignature signature = indexed_attestation.getSignature();
-    long domain = get_domain(state, DOMAIN_ATTESTATION, indexed_attestation.getData().getTarget_epoch());
+    UnsignedLong domain = UnsignedLong.valueOf(get_domain(state, DOMAIN_ATTESTATION, indexed_attestation.getData().getTarget_epoch()));
     //Verify aggregate signature
-    checkArgument(BLSVerify.bls_verify_multiple(pubkeys, message_hashes, signature, UnsignedLong.valueOf(domain)));
+    checkArgument(BLSVerify.bls_verify_multiple(pubkeys, message_hashes, signature, domain));
   }
 
   public static UnsignedLong get_attestation_data_slot(BeaconState state, AttestationData data) {
     UnsignedLong committee_count = get_epoch_committee_count(state, data.getTarget_epoch());
-    UnsignedLong offset = (data.getCrosslink().getShard().plus(UnsignedLong.valueOf(SHARD_COUNT)).minus(get_epoch_start_shard(state, data.getTarget_epoch()))).mod(UnsignedLong.valueOf(SHARD_COUNT));
-    return UnsignedLong.valueOf(Math.floorDiv(get_epoch_start_slot(data.getTarget_epoch()).plus(offset).longValue(), Math.floorDiv(committee_count.longValue(), (long) SLOTS_PER_EPOCH)));
+    UnsignedLong offset = (data.getCrosslink().getShard()
+            .plus(UnsignedLong.valueOf(SHARD_COUNT))
+            .minus(get_epoch_start_shard(state, data.getTarget_epoch())))
+              .mod(UnsignedLong.valueOf(SHARD_COUNT));
+    long numerator = get_epoch_start_slot(data.getTarget_epoch()).plus(offset).longValue();
+    long denominator = Math.floorDiv(committee_count.longValue(), (long) SLOTS_PER_EPOCH);
+    return UnsignedLong.valueOf(Math.floorDiv(numerator,denominator));
   }
 
   public static <T> List<T> intersection(List<T> list1, List<T> list2) {

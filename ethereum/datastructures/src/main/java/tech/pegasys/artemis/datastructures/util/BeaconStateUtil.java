@@ -245,8 +245,9 @@ public class BeaconStateUtil {
   public static Bytes32 generate_seed(BeaconState state, UnsignedLong epoch)
       throws IllegalArgumentException {
     //Generate a seed for the given ``epoch``.
+    UnsignedLong randaoIndex = epoch.plus(UnsignedLong.valueOf(LATEST_RANDAO_MIXES_LENGTH)).minus(UnsignedLong.valueOf(Constants.MIN_SEED_LOOKAHEAD);
     Bytes32 randao_mix =
-        get_randao_mix(state, epoch.minus(UnsignedLong.valueOf(Constants.MIN_SEED_LOOKAHEAD)));
+        get_randao_mix(state, randaoIndex);
     Bytes32 index_root = get_active_index_root(state, epoch);
     Bytes32 epochBytes = int_to_bytes32(epoch.longValue());
     return Hash.sha2_256(Bytes.wrap(randao_mix, index_root, epochBytes));
@@ -266,7 +267,8 @@ public class BeaconStateUtil {
     //Return the index root at a recent ``epoch``.
     //``epoch`` expected to be between
     //(current_epoch - LATEST_ACTIVE_INDEX_ROOTS_LENGTH + ACTIVATION_EXIT_DELAY, current_epoch + ACTIVATION_EXIT_DELAY].
-    return state.getLatest_active_index_roots().get(epoch.mod(UnsignedLong.valueOf(LATEST_ACTIVE_INDEX_ROOTS_LENGTH)).intValue());
+    int index = epoch.mod(UnsignedLong.valueOf(LATEST_ACTIVE_INDEX_ROOTS_LENGTH)).intValue();
+    return state.getLatest_active_index_roots().get(index);
   }
 
   public static UnsignedLong get_total_balance(BeaconState state, List<Integer> indices){
@@ -439,7 +441,7 @@ public class BeaconStateUtil {
    */
   public static Bytes32 get_block_root(BeaconState state, UnsignedLong epoch) {
     //Return the block root at a recent ``epoch``.
-    return get_block_root_at_slot(state, epoch);
+    return get_block_root_at_slot(state, get_epoch_start_slot(epoch));
   }
 
   public static UnsignedLong get_epoch_committee_count(BeaconState state, UnsignedLong epoch){
@@ -452,6 +454,13 @@ public class BeaconStateUtil {
                     UnsignedLong.valueOf(Math.floorDiv(active_validator_indices.size(), Math.floorDiv(SLOTS_PER_EPOCH, TARGET_COMMITTEE_SIZE)))
             )
     ).times(UnsignedLong.valueOf(SLOTS_PER_EPOCH));
+  }
+
+  public static Bytes32 get_randao_mix(BeaconState state, UnsignedLong epoch){
+    //Return the randao mix at a recent ``epoch``.
+    //``epoch`` expected to be between (current_epoch - LATEST_RANDAO_MIXES_LENGTH, current_epoch].
+    int index = epoch.mod(UnsignedLong.valueOf(LATEST_RANDAO_MIXES_LENGTH)).intValue();
+    return state.getLatest_randao_mixes().get(index);
   }
 
   /**
@@ -628,7 +637,8 @@ public class BeaconStateUtil {
 
   public static UnsignedLong get_churn_limit(BeaconState state){
     //Return the churn limit based on the active validator count.
-    return max(UnsignedLong.valueOf(MIN_PER_EPOCH_CHURN_LIMIT), UnsignedLong.valueOf(Math.floorDiv(get_active_validator_indices(state, get_current_epoch(state)).size(), CHURN_LIMIT_QUOTIENT)));
+    return max(UnsignedLong.valueOf(MIN_PER_EPOCH_CHURN_LIMIT),
+            UnsignedLong.valueOf(Math.floorDiv(get_active_validator_indices(state, get_current_epoch(state)).size(), CHURN_LIMIT_QUOTIENT)));
   }
 
 
@@ -835,7 +845,9 @@ public class BeaconStateUtil {
 
   public static Bytes32 get_block_root_at_slot(BeaconState state, UnsignedLong slot){
     //Return the block root at a recent ``slot``.
-    checkArgument(slot.compareTo(state.getSlot()) <= 0 &&  state.getSlot().compareTo(slot.plus(UnsignedLong.valueOf(SLOTS_PER_HISTORICAL_ROOT))) <= 0);
-    return state.getLatest_block_roots().get(slot.mod(UnsignedLong.valueOf(SLOTS_PER_HISTORICAL_ROOT)).intValue());
+    checkArgument(slot.compareTo(state.getSlot()) < 0 &&
+            state.getSlot().compareTo(slot.plus(UnsignedLong.valueOf(SLOTS_PER_HISTORICAL_ROOT))) <= 0);
+    int latestBlockRootIndex = slot.mod(UnsignedLong.valueOf(SLOTS_PER_HISTORICAL_ROOT)).intValue();
+    return state.getLatest_block_roots().get(latestBlockRootIndex);
   }
 }

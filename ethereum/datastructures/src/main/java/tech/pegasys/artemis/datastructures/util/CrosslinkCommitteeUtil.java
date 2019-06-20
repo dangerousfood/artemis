@@ -45,14 +45,23 @@ public class CrosslinkCommitteeUtil {
 
     //Swap or not (https://link.springer.com/content/pdf/10.1007%2F978-3-642-32009-5_1.pdf)
     //See the 'generalized domain' algorithm on page 3
-    for(int round = 0; round< SHUFFLE_ROUND_COUNT; round++){
-      long pivot = bytes_to_int(Bytes.wrap(ArrayUtils.subarray(Hash.sha2_256(Bytes.concatenate(seed, int_to_bytes(round, 1))).toArray(), 0, 8)));
-      long flip = (pivot + index_count - index) % index_count;
+    for(int round = 0; round < SHUFFLE_ROUND_COUNT; round++){
+      Bytes roundBytes = int_to_bytes(round, 1);
+
+      Bytes32 pivotHashValue = Hash.sha2_256(Bytes.concatenate(seed, roundBytes));
+      Bytes pivotHashSubArray = Bytes.wrap(ArrayUtils.subarray(pivotHashValue.toArray(), 0, 8));
+      int pivot = ((int)bytes_to_int(pivotHashSubArray)) % index_count;
+
+      int flip = (pivot + index_count - index) % index_count;
       long position = max(UnsignedLong.valueOf(index), UnsignedLong.valueOf(flip)).longValue();
-      Bytes32 source = Hash.sha2_256(Bytes.concatenate(seed, int_to_bytes(round, 1), int_to_bytes(Math.floorDiv(position, 256l), 4)));
-      byte byteValue = source.get(toIntExact(Math.floorDiv((position % 256), 8l)));
+
+      Bytes sourceBytes = Bytes.concatenate(seed, roundBytes, int_to_bytes(Math.floorDiv(position, 256l), 4));
+      Bytes32 source = Hash.sha2_256(sourceBytes);
+
+      int sourceByteIndex = toIntExact(Math.floorDiv((position % 256), 8l));
+      byte byteValue = source.get(sourceByteIndex);
       int bit = (byteValue >> (position % 8)) % 2;
-      index = (bit == 1) ? (int)flip : index;
+      index = (bit == 1) ? flip : index;
     }
     return index;
   }
@@ -64,17 +73,18 @@ public class CrosslinkCommitteeUtil {
     return indices;
   }
   public static List<Integer> get_crosslink_committee(BeaconState state, UnsignedLong epoch, UnsignedLong shard){
+    int index = (shard.plus(UnsignedLong.valueOf(SHARD_COUNT)).minus(get_epoch_start_shard(state, epoch))).mod(UnsignedLong.valueOf(SHARD_COUNT)).intValue();
     return compute_committee(
             get_active_validator_indices(state, epoch),
             generate_seed(state, epoch),
-            (shard.intValue() + SHARD_COUNT - get_epoch_start_shard(state, epoch).intValue()) % SHARD_COUNT,
+            index,
             get_epoch_committee_count(state, epoch).intValue()
             );
   }
   public static UnsignedLong get_epoch_start_shard(BeaconState state, UnsignedLong epoch){
     checkArgument(epoch.compareTo(get_current_epoch(state).plus(UnsignedLong.ONE)) <= 0);
     UnsignedLong check_epoch = get_current_epoch(state).plus(UnsignedLong.ONE);
-    UnsignedLong shard = state.getLatest_start_shard().plus(get_shard_delta(state, get_current_epoch(state))).mod(UnsignedLong.valueOf(SHARD_COUNT));
+    UnsignedLong shard = (state.getLatest_start_shard().plus(get_shard_delta(state, get_current_epoch(state)))).mod(UnsignedLong.valueOf(SHARD_COUNT));
 
     while(check_epoch.compareTo(epoch) > 0){
       check_epoch = check_epoch.minus(UnsignedLong.ONE);
