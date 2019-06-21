@@ -170,8 +170,16 @@ public class AttestationUtil {
         .intValue();
   }
 
+  /**
+   * Check if ``data_1`` and ``data_2`` are slashable according to Casper FFG rules.
+   *
+   * @param data_1
+   * @param data_2
+   * @return
+   *
+   * @see <a>https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#is_slashable_attestation_data</a>
+   */
   public static boolean is_slashable_attestation_data(AttestationData data_1, AttestationData data_2){
-    //Check if ``data_1`` and ``data_2`` are slashable according to Casper FFG rules.
     return (
       //case 1: double vote || case 2: surround vote
       (!data_1.equals(data_2) && data_1.getTarget_epoch().equals(data_2.getTarget_epoch()) ||
@@ -180,10 +188,18 @@ public class AttestationUtil {
     );
   }
 
+  /**
+   * Convert ``attestation`` to (almost) indexed-verifiable form.
+   *
+   * @param state
+   * @param attestation
+   * @return
+   *
+   * @see <a>https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#convert_to_indexed</a>
+   */
   public static IndexedAttestation convert_to_indexed(BeaconState state, Attestation attestation){
-    //Convert ``attestation`` to (almost) indexed-verifiable form.
     List<Integer> attestations = get_attesting_indices(state, attestation.getData(), attestation.getAggregation_bitfield());
-    List<Integer>  custody_bit_1_indices = get_attesting_indices(state, attestation.getData(), attestation.getCustody_bitfield());
+    List<Integer> custody_bit_1_indices = get_attesting_indices(state, attestation.getData(), attestation.getCustody_bitfield());
 
     List<Integer> custody_bit_0_indices = new ArrayList<Integer>();
     for(int i = 0; i < attestations.size(); i++){
@@ -198,11 +214,21 @@ public class AttestationUtil {
             );
   }
 
+  /**
+   * Return the sorted attesting indices corresponding to ``attestation_data`` and ``bitfield``.
+   *
+   * @param state
+   * @param attestation_data
+   * @param bitfield
+   * @return
+   * @throws IllegalArgumentException
+   *
+   * @see <a>https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_attesting_indices</a>
+   */
   public static List<Integer> get_attesting_indices(
           BeaconState state, AttestationData attestation_data, Bytes bitfield) throws IllegalArgumentException {
-    //Return the sorted attesting indices corresponding to ``attestation_data`` and ``bitfield``.
     List<Integer> committee = get_crosslink_committee(state, attestation_data.getTarget_epoch(), attestation_data.getCrosslink().getShard());
-    checkArgument(verify_bitfield(bitfield, committee.size()));
+    checkArgument(verify_bitfield(bitfield, committee.size()), "AttestationUtil.get_attesting_indices");
 
     List<Integer> attesting_indices = new ArrayList<Integer>();
     for(int i=0; i < committee.size(); i++){
@@ -213,17 +239,21 @@ public class AttestationUtil {
     return attesting_indices;
   }
 
+  /**
+   * Verify validity of ``indexed_attestation``.
+   *
+   * @param state
+   * @param indexed_attestation
+   *
+   * @see <a>https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#validate_indexed_attestation</a>
+   */
   public static void validate_indexed_attestation(BeaconState state, IndexedAttestation indexed_attestation){
-    //Verify validity of ``indexed_attestation``.
     List<Integer> bit_0_indices = indexed_attestation.getCustody_bit_0_indices();
     List<Integer> bit_1_indices = indexed_attestation.getCustody_bit_1_indices();
 
-    //Verify no index has custody bit equal to 1 [to be removed in phase 1]
-    checkArgument(bit_0_indices.size() == 0);
-    //Verify max number of indices
-    checkArgument((bit_0_indices.size() + bit_1_indices.size()) <= MAX_INDICES_PER_ATTESTATION);
-    //Verify index sets are disjoint
-    checkArgument(intersection(bit_0_indices, bit_1_indices).size() == 0);
+    checkArgument(bit_0_indices.size() == 0, "AttestationUtil.validate_indexed_attestation: Verify no index has custody bit equal to 1 [to be removed in phase 1]");
+    checkArgument((bit_0_indices.size() + bit_1_indices.size()) <= MAX_INDICES_PER_ATTESTATION, "AttestationUtil.validate_indexed_attestation: Verify max number of indices");
+    checkArgument(intersection(bit_0_indices, bit_1_indices).size() == 0, "AttestationUtil.validate_indexed_attestation: Verify index sets are disjoint");
 
     //Verify indices are sorted
     List<Integer> bit_0_indices_sorted = new ArrayList<Integer>(bit_0_indices);
@@ -249,6 +279,15 @@ public class AttestationUtil {
     checkArgument(BLSVerify.bls_verify_multiple(pubkeys, message_hashes, signature, domain));
   }
 
+  /**
+   * Returns the data slot for the provided AttestationData
+   *
+   * @param state
+   * @param data
+   * @return
+   *
+   * @see <a>https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_attestation_data_slot</a>
+   */
   public static UnsignedLong get_attestation_data_slot(BeaconState state, AttestationData data) {
     UnsignedLong committee_count = get_epoch_committee_count(state, data.getTarget_epoch());
     UnsignedLong offset = (data.getCrosslink().getShard()
@@ -257,7 +296,8 @@ public class AttestationUtil {
               .mod(UnsignedLong.valueOf(SHARD_COUNT));
     long numerator = get_epoch_start_slot(data.getTarget_epoch()).plus(offset).longValue();
     long denominator = Math.floorDiv(committee_count.longValue(), (long) SLOTS_PER_EPOCH);
-    return UnsignedLong.valueOf(Math.floorDiv(numerator,denominator));
+    UnsignedLong data_slot = UnsignedLong.valueOf(Math.floorDiv(numerator,denominator));
+    return data_slot;
   }
 
   public static <T> List<T> intersection(List<T> list1, List<T> list2) {

@@ -38,10 +38,19 @@ import static tech.pegasys.artemis.datastructures.util.ValidatorsUtil.get_active
 
 public class CrosslinkCommitteeUtil {
 
+  /**
+   * Return the shuffled validator index corresponding to ``seed`` (and ``index_count``).
+   *
+   * @param index
+   * @param index_count
+   * @param seed
+   * @return
+   *
+   * @see <a>https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_shuffled_index</a>
+   */
   public static Integer get_shuffled_index(int index, int index_count, Bytes32 seed){
-    //Return the shuffled validator index corresponding to ``seed`` (and ``index_count``).
-    checkArgument(index < index_count);
-    checkArgument(index_count <= Math.pow(2, 40));
+    checkArgument(index < index_count, "CrosslinkCommitteeUtil.get_shuffled_index1");
+    checkArgument(index_count <= Math.pow(2, 40), "CrosslinkCommitteeUtil.get_shuffled_index2");
 
     //Swap or not (https://link.springer.com/content/pdf/10.1007%2F978-3-642-32009-5_1.pdf)
     //See the 'generalized domain' algorithm on page 3
@@ -65,15 +74,39 @@ public class CrosslinkCommitteeUtil {
     }
     return index;
   }
+
+  /**
+   * Computes indices of a new committee based upon the seed parameter
+   *
+   * @param indices
+   * @param seed
+   * @param index
+   * @param count
+   * @return
+   *
+   * @see <a>https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#compute_committee</a>
+   */
   public static List<Integer> compute_committee(List<Integer> indices, Bytes32 seed, int index, int count){
     int start = Math.floorDiv(indices.size() * index, count);
     int end = Math.floorDiv(indices.size() * (index + 1), count);
-
     for(int i = start; i < end; i++)indices.set(i, get_shuffled_index(i, indices.size(), seed));
     return indices;
   }
+
+  /**
+   * Convenience method for getting a crosslink committee
+   *
+   * @param state
+   * @param epoch
+   * @param shard
+   * @return
+   *
+   * @see <a>https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_crosslink_committee</a>
+   */
   public static List<Integer> get_crosslink_committee(BeaconState state, UnsignedLong epoch, UnsignedLong shard){
-    int index = (shard.plus(UnsignedLong.valueOf(SHARD_COUNT)).minus(get_epoch_start_shard(state, epoch))).mod(UnsignedLong.valueOf(SHARD_COUNT)).intValue();
+    int index = (shard.plus(UnsignedLong.valueOf(SHARD_COUNT)).minus(get_epoch_start_shard(state, epoch)))
+            .mod(UnsignedLong.valueOf(SHARD_COUNT))
+            .intValue();
     return compute_committee(
             get_active_validator_indices(state, epoch),
             generate_seed(state, epoch),
@@ -81,8 +114,18 @@ public class CrosslinkCommitteeUtil {
             get_epoch_committee_count(state, epoch).intValue()
             );
   }
+
+  /**
+   * Returns the index of a start shard for the provided epoch
+   *
+   * @param state
+   * @param epoch
+   * @return
+   *
+   * @see <a>https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_epoch_start_shard</a>
+   */
   public static UnsignedLong get_epoch_start_shard(BeaconState state, UnsignedLong epoch){
-    checkArgument(epoch.compareTo(get_current_epoch(state).plus(UnsignedLong.ONE)) <= 0);
+    checkArgument(epoch.compareTo(get_current_epoch(state).plus(UnsignedLong.ONE)) <= 0, "CrosslinkCommitteeUtil.get_epoch_start_shard");
     UnsignedLong check_epoch = get_current_epoch(state).plus(UnsignedLong.ONE);
     UnsignedLong shard = (state.getLatest_start_shard().plus(get_shard_delta(state, get_current_epoch(state)))).mod(UnsignedLong.valueOf(SHARD_COUNT));
 
@@ -93,8 +136,16 @@ public class CrosslinkCommitteeUtil {
     return shard;
   }
 
+  /**
+   * Return the number of shards to increment ``state.latest_start_shard`` during ``epoch``.
+   *
+   * @param state
+   * @param epoch
+   * @return
+   *
+   * @see <a>https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_shard_delta</a>
+   */
   public static UnsignedLong get_shard_delta(BeaconState state, UnsignedLong epoch){
-    //Return the number of shards to increment ``state.latest_start_shard`` during ``epoch``.
     return min(get_epoch_committee_count(state, epoch), UnsignedLong.valueOf(SHARD_COUNT - Math.floorDiv(SHARD_COUNT , SLOTS_PER_EPOCH)));
   }
 }
