@@ -21,6 +21,8 @@ import org.apache.tuweni.crypto.Hash;
 import tech.pegasys.artemis.datastructures.state.BeaconState;
 
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.toIntExact;
@@ -34,6 +36,7 @@ import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.get_epoch
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.int_to_bytes;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.max;
 import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.min;
+import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.safeMod;
 import static tech.pegasys.artemis.datastructures.util.ValidatorsUtil.get_active_validator_indices;
 
 public class CrosslinkCommitteeUtil {
@@ -59,17 +62,17 @@ public class CrosslinkCommitteeUtil {
 
       Bytes32 pivotHashValue = Hash.sha2_256(Bytes.concatenate(seed, roundBytes));
       Bytes pivotHashSubArray = Bytes.wrap(ArrayUtils.subarray(pivotHashValue.toArray(), 0, 8));
-      int pivot = ((int)bytes_to_int(pivotHashSubArray)) % index_count;
+      int pivot = safeMod(((int)bytes_to_int(pivotHashSubArray)) ,index_count);
 
-      int flip = (pivot + index_count - index) % index_count;
+      int flip = safeMod((pivot + index_count - index), index_count);
       long position = max(UnsignedLong.valueOf(index), UnsignedLong.valueOf(flip)).longValue();
 
       Bytes sourceBytes = Bytes.concatenate(seed, roundBytes, int_to_bytes(Math.floorDiv(position, 256l), 4));
       Bytes32 source = Hash.sha2_256(sourceBytes);
 
-      int sourceByteIndex = toIntExact(Math.floorDiv((position % 256), 8l));
+      int sourceByteIndex = toIntExact(Math.floorDiv(safeMod(position, 256), 8l));
       byte byteValue = source.get(sourceByteIndex);
-      int bit = (byteValue >> (position % 8)) % 2;
+      int bit = safeMod((byteValue >> (safeMod(position, 8))), 2);
       index = (bit == 1) ? flip : index;
     }
     return index;
@@ -89,8 +92,7 @@ public class CrosslinkCommitteeUtil {
   public static List<Integer> compute_committee(List<Integer> indices, Bytes32 seed, int index, int count){
     int start = Math.floorDiv(indices.size() * index, count);
     int end = Math.floorDiv(indices.size() * (index + 1), count);
-    for(int i = start; i < end; i++)indices.set(i, get_shuffled_index(i, indices.size(), seed));
-    return indices;
+    return IntStream.range(start, end).map(i -> indices.get(get_shuffled_index(i, indices.size(), seed))).boxed().collect(Collectors.toList());
   }
 
   /**
@@ -104,7 +106,7 @@ public class CrosslinkCommitteeUtil {
    * @see <a>https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#get_crosslink_committee</a>
    */
   public static List<Integer> get_crosslink_committee(BeaconState state, UnsignedLong epoch, UnsignedLong shard){
-    int index = (shard.plus(UnsignedLong.valueOf(SHARD_COUNT)).minus(get_epoch_start_shard(state, epoch)))
+    int index = shard.plus(UnsignedLong.valueOf(SHARD_COUNT).minus(get_epoch_start_shard(state, epoch)))
             .mod(UnsignedLong.valueOf(SHARD_COUNT))
             .intValue();
     return compute_committee(
@@ -127,11 +129,11 @@ public class CrosslinkCommitteeUtil {
   public static UnsignedLong get_epoch_start_shard(BeaconState state, UnsignedLong epoch){
     checkArgument(epoch.compareTo(get_current_epoch(state).plus(UnsignedLong.ONE)) <= 0, "CrosslinkCommitteeUtil.get_epoch_start_shard");
     UnsignedLong check_epoch = get_current_epoch(state).plus(UnsignedLong.ONE);
-    UnsignedLong shard = (state.getLatest_start_shard().plus(get_shard_delta(state, get_current_epoch(state)))).mod(UnsignedLong.valueOf(SHARD_COUNT));
+    UnsignedLong shard = state.getLatest_start_shard().plus(get_shard_delta(state, get_current_epoch(state))).mod(UnsignedLong.valueOf(SHARD_COUNT));
 
     while(check_epoch.compareTo(epoch) > 0){
       check_epoch = check_epoch.minus(UnsignedLong.ONE);
-      shard = (shard.plus(UnsignedLong.valueOf(SHARD_COUNT)).minus(get_shard_delta(state, check_epoch))).mod(UnsignedLong.valueOf(SHARD_COUNT));
+      shard = shard.plus(UnsignedLong.valueOf(SHARD_COUNT)).minus(get_shard_delta(state, check_epoch)).mod(UnsignedLong.valueOf(SHARD_COUNT));
     }
     return shard;
   }

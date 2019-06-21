@@ -56,6 +56,7 @@ import static tech.pegasys.artemis.datastructures.util.BeaconStateUtil.verify_bi
 import static tech.pegasys.artemis.datastructures.util.CrosslinkCommitteeUtil.get_crosslink_committee;
 import static tech.pegasys.artemis.datastructures.util.CrosslinkCommitteeUtil.get_epoch_committee_count;
 import static tech.pegasys.artemis.datastructures.util.CrosslinkCommitteeUtil.get_epoch_start_shard;
+import static tech.pegasys.artemis.util.bls.BLSAggregate.bls_aggregate_pubkeys;
 import static tech.pegasys.artemis.util.hashtree.HashTreeUtil.SSZTypes.LIST_OF_BASIC;
 import static tech.pegasys.artemis.util.hashtree.HashTreeUtil.hash_tree_root;
 
@@ -263,13 +264,13 @@ public class AttestationUtil {
     checkArgument(bit_0_indices.equals(bit_0_indices_sorted) && bit_1_indices.equals(bit_1_indices_sorted));
 
     List<Validator> validators = state.getValidator_registry();
-    List<BLSPublicKey> pubkeys = Arrays.stream(validators.subList(0, bit_0_indices.size()).toArray())
-            .map((validator) -> {return ((Validator)validator).getPubkey();}).collect(Collectors.toList());
-    pubkeys.addAll(Arrays.stream(validators.subList(0, bit_1_indices.size()).toArray())
-            .map((validator) -> {return ((Validator)validator).getPubkey();}).collect(Collectors.toList()));
+    List<BLSPublicKey> pubkeys = new ArrayList<BLSPublicKey>();
+    pubkeys.add(bls_aggregate_pubkeys(bit_0_indices.stream()
+            .map(i -> validators.get(i).getPubkey()).collect(Collectors.toList())));
+    pubkeys.add(bls_aggregate_pubkeys(bit_1_indices.stream()
+            .map(i -> validators.get(i).getPubkey()).collect(Collectors.toList())));
 
     List<Bytes32> message_hashes = new ArrayList<Bytes32>();
-    new AttestationDataAndCustodyBit(indexed_attestation.getData(), false);
     message_hashes.add(new AttestationDataAndCustodyBit(indexed_attestation.getData(), false).hash_tree_root());
     message_hashes.add(new AttestationDataAndCustodyBit(indexed_attestation.getData(), true).hash_tree_root());
 
@@ -294,10 +295,7 @@ public class AttestationUtil {
             .plus(UnsignedLong.valueOf(SHARD_COUNT))
             .minus(get_epoch_start_shard(state, data.getTarget_epoch())))
               .mod(UnsignedLong.valueOf(SHARD_COUNT));
-    UnsignedLong numerator = get_epoch_start_slot(data.getTarget_epoch()).plus(offset);
-    UnsignedLong denominator = committee_count.dividedBy(UnsignedLong.valueOf(SLOTS_PER_EPOCH));
-    UnsignedLong data_slot = numerator.dividedBy(denominator);
-    return data_slot;
+    return get_epoch_start_slot(data.getTarget_epoch()).plus(offset.dividedBy(committee_count.dividedBy(UnsignedLong.valueOf(SLOTS_PER_EPOCH))));
   }
 
   public static <T> List<T> intersection(List<T> list1, List<T> list2) {

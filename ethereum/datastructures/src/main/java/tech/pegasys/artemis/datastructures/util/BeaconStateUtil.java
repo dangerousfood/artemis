@@ -471,7 +471,7 @@ public class BeaconStateUtil {
             UnsignedLong.ONE,
             min(
                     UnsignedLong.valueOf(Math.floorDiv(SHARD_COUNT, SLOTS_PER_EPOCH)),
-                    UnsignedLong.valueOf(Math.floorDiv(active_validator_indices.size(), Math.floorDiv(SLOTS_PER_EPOCH, TARGET_COMMITTEE_SIZE)))
+                    UnsignedLong.valueOf(active_validator_indices.size()).dividedBy(UnsignedLong.valueOf(SLOTS_PER_EPOCH)).dividedBy(UnsignedLong.valueOf(TARGET_COMMITTEE_SIZE))
             )
     ).times(UnsignedLong.valueOf(SLOTS_PER_EPOCH));
   }
@@ -908,5 +908,23 @@ public class BeaconStateUtil {
             , "BeaconStateUtil.get_block_root_at_slot");
     int latestBlockRootIndex = slot.mod(UnsignedLong.valueOf(SLOTS_PER_HISTORICAL_ROOT)).intValue();
     return state.getLatest_block_roots().get(latestBlockRootIndex);
+  }
+
+  /**
+   * @param m
+   * @param n
+   * @return
+   */
+  public static int safeMod(int m, int n){
+    return ((n % m) + m) % m;
+  }
+
+  /**
+   * @param m
+   * @param n
+   * @return
+   */
+  public static long safeMod(long m, long n){
+    return ((n % m) + m) % m;
   }
 }
