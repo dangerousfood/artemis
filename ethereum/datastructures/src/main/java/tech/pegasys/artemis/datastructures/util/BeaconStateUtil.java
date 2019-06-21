@@ -594,8 +594,7 @@ public class BeaconStateUtil {
   public static int get_beacon_proposer_index(
       BeaconState state) {
     UnsignedLong epoch = get_current_epoch(state);
-    UnsignedLong committees_per_slot = UnsignedLong.valueOf(
-            Math.floorDiv(get_epoch_committee_count(state, epoch).longValue(), (long)SLOTS_PER_EPOCH));
+    UnsignedLong committees_per_slot = get_epoch_committee_count(state, epoch).dividedBy(UnsignedLong.valueOf(SLOTS_PER_EPOCH));
     UnsignedLong offset = committees_per_slot.times(state.getSlot().mod(UnsignedLong.valueOf(SLOTS_PER_EPOCH)));
     UnsignedLong shard = (get_epoch_start_shard(state, epoch).plus(offset)).mod(UnsignedLong.valueOf(SHARD_COUNT));
 

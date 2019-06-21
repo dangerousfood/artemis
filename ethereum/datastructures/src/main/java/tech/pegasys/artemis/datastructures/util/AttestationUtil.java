@@ -198,12 +198,12 @@ public class AttestationUtil {
    * @see <a>https://github.com/ethereum/eth2.0-specs/blob/v0.7.1/specs/core/0_beacon-chain.md#convert_to_indexed</a>
    */
   public static IndexedAttestation convert_to_indexed(BeaconState state, Attestation attestation){
-    List<Integer> attestations = get_attesting_indices(state, attestation.getData(), attestation.getAggregation_bitfield());
+    List<Integer> attesting_indices = get_attesting_indices(state, attestation.getData(), attestation.getAggregation_bitfield());
     List<Integer> custody_bit_1_indices = get_attesting_indices(state, attestation.getData(), attestation.getCustody_bitfield());
 
     List<Integer> custody_bit_0_indices = new ArrayList<Integer>();
-    for(int i = 0; i < attestations.size(); i++){
-      Integer index = attestations.get(i);
+    for(int i = 0; i < attesting_indices.size(); i++){
+      Integer index = attesting_indices.get(i);
       if(!custody_bit_1_indices.contains(index))custody_bit_0_indices.add(index);
     }
     return new IndexedAttestation(
@@ -251,7 +251,7 @@ public class AttestationUtil {
     List<Integer> bit_0_indices = indexed_attestation.getCustody_bit_0_indices();
     List<Integer> bit_1_indices = indexed_attestation.getCustody_bit_1_indices();
 
-    checkArgument(bit_0_indices.size() == 0, "AttestationUtil.validate_indexed_attestation: Verify no index has custody bit equal to 1 [to be removed in phase 1]");
+    checkArgument(bit_1_indices.size() == 0, "AttestationUtil.validate_indexed_attestation: Verify no index has custody bit equal to 1 [to be removed in phase 1]");
     checkArgument((bit_0_indices.size() + bit_1_indices.size()) <= MAX_INDICES_PER_ATTESTATION, "AttestationUtil.validate_indexed_attestation: Verify max number of indices");
     checkArgument(intersection(bit_0_indices, bit_1_indices).size() == 0, "AttestationUtil.validate_indexed_attestation: Verify index sets are disjoint");
 
@@ -294,9 +294,9 @@ public class AttestationUtil {
             .plus(UnsignedLong.valueOf(SHARD_COUNT))
             .minus(get_epoch_start_shard(state, data.getTarget_epoch())))
               .mod(UnsignedLong.valueOf(SHARD_COUNT));
-    long numerator = get_epoch_start_slot(data.getTarget_epoch()).plus(offset).longValue();
-    long denominator = Math.floorDiv(committee_count.longValue(), (long) SLOTS_PER_EPOCH);
-    UnsignedLong data_slot = UnsignedLong.valueOf(Math.floorDiv(numerator,denominator));
+    UnsignedLong numerator = get_epoch_start_slot(data.getTarget_epoch()).plus(offset);
+    UnsignedLong denominator = committee_count.dividedBy(UnsignedLong.valueOf(SLOTS_PER_EPOCH));
+    UnsignedLong data_slot = numerator.dividedBy(denominator);
     return data_slot;
   }
 
