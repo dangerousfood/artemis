@@ -98,7 +98,7 @@ public class StateProcessor {
       }
     }
 
-    if (deposits == null) deposits = new ArrayList<>();
+    if (deposits == null) deposits = new ArrayList<Deposit>();
     deposits.add(DepositUtil.convertEventDepositToOperationDeposit(event));
 
     UnsignedLong eth1_timestamp = null;
