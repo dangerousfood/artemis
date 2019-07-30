@@ -63,4 +63,8 @@ public abstract class TestSuite {
                 Arguments.of(objects.toArray())
         });
     }
+
+    public static Pair<Class, List<String>> getParams(Class classType, List<String> args){
+        return new Pair<Class, List<String>>(classType, args);
+    }
 }
