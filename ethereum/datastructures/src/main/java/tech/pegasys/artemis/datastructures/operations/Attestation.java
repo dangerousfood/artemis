@@ -56,11 +56,9 @@ public class Attestation implements Merkleizable, SimpleOffsetSerializable {
   @Override
   public List<Bytes> get_fixed_parts() {
     List<Bytes> fixedPartsList = new ArrayList<>();
-    fixedPartsList.addAll(
-        List.of(Bytes.EMPTY));
+    fixedPartsList.addAll(List.of(Bytes.EMPTY));
     fixedPartsList.addAll(data.get_fixed_parts());
-    fixedPartsList.addAll(
-      List.of(Bytes.EMPTY));
+    fixedPartsList.addAll(List.of(Bytes.EMPTY));
     fixedPartsList.addAll(signature.get_fixed_parts());
     return fixedPartsList;
   }
@@ -69,11 +67,9 @@ public class Attestation implements Merkleizable, SimpleOffsetSerializable {
   public List<Bytes> get_variable_parts() {
     List<Bytes> variablePartsList = new ArrayList<>();
     // variablePartsList.addAll( /* TODO Serialize Bitlist */ );
-    variablePartsList.addAll(
-        List.of(Bytes.EMPTY));
+    variablePartsList.addAll(List.of(Bytes.EMPTY));
     // variablePartsList.addAll( /* TODO Serialize Bitlist */ );
-    variablePartsList.addAll(
-        List.of(Bytes.EMPTY));
+    variablePartsList.addAll(List.of(Bytes.EMPTY));
     return variablePartsList;
   }
 
@@ -82,16 +78,16 @@ public class Attestation implements Merkleizable, SimpleOffsetSerializable {
         bytes,
         reader ->
             new Attestation(
-                Bytes.wrap(reader.readBytes()),// TODO readBitlist logic required
+                Bytes.wrap(reader.readBytes()), // TODO readBitlist logic required
                 AttestationData.fromBytes(reader.readBytes()),
-                Bytes.wrap(reader.readBytes()),// TODO readBitlist logic required
+                Bytes.wrap(reader.readBytes()), // TODO readBitlist logic required
                 BLSSignature.fromBytes(reader.readBytes())));
   }
 
   public Bytes toBytes() {
     return SSZ.encode(
         writer -> {
-          writer.writeBytes(aggregation_bits);// TODO writeBitlist logic required
+          writer.writeBytes(aggregation_bits); // TODO writeBitlist logic required
           writer.writeBytes(data.toBytes());
           writer.writeBytes(custody_bits);// TODO writeBitlist logic required
           writer.writeBytes(signature.toBytes());
@@ -161,7 +157,8 @@ public class Attestation implements Merkleizable, SimpleOffsetSerializable {
   public Bytes32 hash_tree_root() {
     return HashTreeUtil.merkleize(
         Arrays.asList(
-            HashTreeUtil.hash_tree_root(SSZTypes.LIST_OF_BASIC, aggregation_bits),// TODO writeBitlist logic required
+            HashTreeUtil.hash_tree_root(
+                SSZTypes.LIST_OF_BASIC, aggregation_bits), // TODO writeBitlist logic required
             data.hash_tree_root(),
             HashTreeUtil.hash_tree_root(SSZTypes.LIST_OF_BASIC, custody_bits),// TODO writeBitlist logic required
             HashTreeUtil.hash_tree_root(SSZTypes.TUPLE_OF_BASIC, signature.toBytes())));
